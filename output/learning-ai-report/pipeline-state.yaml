@@ -1,0 +1,58 @@
+schema_version: 1
+request_id: learning-ai-report
+created_at: "2026-11-12T21:05:00+08:00"
+updated_at: "2026-11-12T21:08:00+08:00"
+
+entry_type: full_pipeline
+stage_chain: [1, 2, 3]
+
+output_docx_path: "C:\\Users\\zhang\\Desktop\\作业\\output\\learning-ai-report\\stage3\\基于MongoDB的技能图谱学习推荐系统设计与实现报告.docx"
+output_docx_user_specified: false
+
+current_stage: completed
+
+stages:
+  stage_0:
+    status: completed
+    completed_at: "2026-11-12T21:05:00+08:00"
+    decision: full_pipeline
+
+  stage_1:
+    status: completed
+    started_at: "2026-11-12T21:05:00+08:00"
+    completed_at: "2026-11-12T21:08:00+08:00"
+    output_path: "stage1/final_draft.md"
+    genre: academic-paper
+    expert_used: academic-paper-expert
+    route_tag: expert_academic
+
+  stage_2:
+    status: completed
+    started_at: "2026-11-12T21:08:00+08:00"
+    completed_at: "2026-11-12T21:12:00+08:00"
+    route: html
+    html_sub: template
+    output_path: "stage2/formatted-技能图谱学习推荐系统.html"
+    output_format: html
+    skills_invoked: [doc-typeset]
+    design_tokens_path: null
+    fallback: false
+    fallback_reason: null
+
+  stage_3:
+    status: completed
+    started_at: "2026-11-12T21:12:00+08:00"
+    completed_at: "2026-11-12T21:15:00+08:00"
+    executor: doc-converter
+    input_format: html
+    output_path: "C:\\Users\\zhang\\Desktop\\作业\\output\\learning-ai-report\\stage3\\基于MongoDB的技能图谱学习推荐系统设计与实现报告.docx"
+    skill_used: ["html-to-doc"]
+    present_files_opened: true
+    fallback: false
+    fallback_reason: null
+
+consistency_check:
+  output_files_exist: pass
+  stage_chain_complete: pass
+  last_checked_at: "2026-11-12T21:15:00+08:00"
+  errors: []

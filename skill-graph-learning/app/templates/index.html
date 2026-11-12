@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 训练师工作台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f6fa; color: #333; }
+  header { background: #1a3c6e; color: #fff; padding: 16px 24px; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px; background: #fff; padding: 0 24px; border-bottom: 1px solid #e0e0e0; }
+  .tab { padding: 12px 16px; cursor: pointer; font-size: 14px; color: #666; border-bottom: 2px solid transparent; }
+  .tab.active { color: #1a3c6e; border-bottom-color: #1a3c6e; font-weight: 600; }
+  .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+  .panel { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 16px; margin-bottom: 16px; color: #1a3c6e; }
+  .form-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+  .form-item { display: flex; flex-direction: column; }
+  .form-item label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  input, select, textarea { padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+  textarea { min-width: 300px; min-height: 70px; font-family: inherit; }
+  button { padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  .btn-primary { background: #1a3c6e; color: #fff; }
+  .btn-primary:hover { background: #24508f; }
+  .btn-danger { background: #e24b4a; color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #f0f3f8; color: #555; font-weight: 600; }
+  tr:hover td { background: #fafbfd; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #eef3fa; color: #1a3c6e; margin-right: 4px; }
+  .empty { text-align: center; color: #aaa; padding: 30px; }
+  .msg { padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; font-size: 14px; display: none; }
+  .msg.ok { display: block; background: #e8f5e9; color: #2e7d32; }
+  .msg.error { display: block; background: #fcebeb; color: #a32d2d; }
+  .rec-item { border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin-bottom: 8px; background: #fafbfd; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .badge-registered { background: #e3f2fd; color: #1565c0; }
+  .badge-training { background: #fff3e0; color: #e65100; }
+  .badge-ready { background: #e8f5e9; color: #2e7d32; }
+  .badge-deprecated { background: #eee; color: #888; }
+  .badge-pending { background: #fff3e0; color: #e65100; }
+  .badge-running { background: #e3f2fd; color: #1565c0; }
+  .badge-completed { background: #e8f5e9; color: #2e7d32; }
+  .badge-failed { background: #fcebeb; color: #c62828; }
+  .chat-box { border: 1px solid #e0e0e0; border-radius: 6px; padding: 16px; min-height: 300px; max-height: 460px; overflow-y: auto; background: #fafbfd; margin-bottom: 12px; }
+  .chat-msg { margin-bottom: 12px; display: flex; }
+  .chat-msg .bubble { max-width: 75%; padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .chat-msg.user { justify-content: flex-end; }
+  .chat-msg.user .bubble { background: #1a3c6e; color: #fff; }
+  .chat-msg.assistant .bubble { background: #fff; border: 1px solid #e0e0e0; }
+  .param-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .param-item { border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; }
+  .param-item label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+  .param-item input { width: 100%; }
+  .progress-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin: 6px 0; }
+  .progress-bar .fill { height: 100%; background: #1a3c6e; transition: width .3s; }
+  .score-bar { display: inline-block; height: 6px; border-radius: 3px; background: #1a3c6e; vertical-align: middle; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AI 训练师工作台</h1>
+  <div class="sub">模型管理 · 参数调配 · 技能扩展 · 数据训练（参考 roadmap.sh AI Engineer）</div>
+</header>
+
+<div class="tabs" id="tabbar">
+  <div class="tab active" data-tab="models">模型管理</div>
+  <div class="tab" data-tab="params">参数调配</div>
+  <div class="tab" data-tab="skills">技能扩展</div>
+  <div class="tab" data-tab="datasets">数据集</div>
+  <div class="tab" data-tab="documents">知识库</div>
+  <div class="tab" data-tab="runs">训练运行</div>
+  <div class="tab" data-tab="versions">模型版本</div>
+  <div class="tab" data-tab="assistant">智能助手</div>
+  <div class="tab" data-tab="nlp">NLP 功能</div>
+  <div class="tab" data-tab="vector">向量检索</div>
+</div>
+
+<div class="container">
+  <div id="msg" class="msg"></div>
+
+  <!-- 模型管理 -->
+  <div id="tab-models" class="tab-panel">
+    <div class="panel">
+      <h2>注册模型</h2>
+      <div class="form-row">
+        <div class="form-item"><label>模型名称</label><input id="m-name" placeholder="如：医疗问答助手 v1"></div>
+        <div class="form-item"><label>类型</label>
+          <select id="m-type">
+            <option value="llm">llm（大语言模型）</option>
+            <option value="embedding">embedding（向量模型）</option>
+            <option value="vision">vision（视觉模型）</option>
+            <option value="multimodal">multimodal（多模态）</option>
+          </select>
+        </div>
+        <div class="form-item"><label>描述</label><input id="m-desc" style="min-width:300px"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-item"><label>模型来源</label>
+          <select id="m-source-type" onchange="onSourceTypeChange()">
+            <option value="registered">已注册（仅名称）</option>
+            <option value="local_dir">本地文件夹</option>
+            <option value="local_file">本地文件</option>
+            <option value="huggingface">HuggingFace 仓库</option>
+            <option value="url">远程 URL</option>
+          </select>
+        </div>
+        <div class="form-item" style="flex:1"><label id="m-base-label">基座模型 / 路径</label>
+          <input id="m-base" placeholder="如：Qwen2.5-7B" style="min-width:360px">
+        </div>
+        <div class="form-item" id="m-browse-wrap" style="display:none">
+          <button class="btn-primary" onclick="browseDir()" style="background:#24508f">浏览文件夹…</button>
+        </div>
+      </div>
+      <div id="m-source-hint" style="font-size:12px;color:#888;margin-bottom:10px;"></div>
+      <button class="btn-primary" onclick="createModel()">注册</button>
+    </div>
+    <div class="panel">
+      <h2>本地文件夹选择</h2>
+      <div id="dir-browser" style="display:none;border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:10px;">
+        <div id="dir-path" style="font-size:12px;color:#1a3c6e;margin-bottom:8px;"></div>
+        <div id="dir-list" style="max-height:260px;overflow-y:auto;font-size:13px;"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>模型列表</h2>
+      <table id="model-table"><thead><tr><th>名称</th><th>基座/来源</th><th>类型</th><th>来源</th><th>状态</th><th>技能数</th><th>训练数</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 参数调配 -->
+  <div id="tab-params" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>参数调配</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择模型</label><select id="p-model"></select></div>
+        <button class="btn-primary" onclick="loadParams()">加载参数</button>
+        <button class="btn-primary" style="background:#e24b4a" onclick="resetParams()">重置默认</button>
+      </div>
+      <div class="param-grid" id="param-grid"></div>
+      <div class="form-row" style="margin-top:16px">
+        <button class="btn-primary" onclick="saveParams()">保存参数</button>
+      </div>
+      <div id="param-result"></div>
+    </div>
+  </div>
+
+  <!-- 技能扩展 -->
+  <div id="tab-skills" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>新增技能（给模型扩展能力）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>技能名称</label><input id="s-name" placeholder="如：代码生成"></div>
+        <div class="form-item"><label>类别</label>
+          <select id="s-category">
+            <option value="代码生成">代码生成</option>
+            <option value="知识问答">知识问答</option>
+            <option value="工具调用">工具调用</option>
+            <option value="文本生成">文本生成</option>
+            <option value="图像理解">图像理解</option>
+            <option value="翻译">翻译</option>
+            <option value="摘要">摘要</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-item"><label>描述</label><input id="s-desc" style="min-width:300px"></div>
+        <div class="form-item"><label>提示词模板(可选)</label><input id="s-prompt" style="min-width:300px" placeholder="如：请生成一段 Python 代码实现 {需求}"></div>
+        <button class="btn-primary" onclick="createSkill()">新增</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>技能列表</h2>
+      <table id="skill-table"><thead><tr><th>名称</th><th>类别</th><th>挂载模型</th><th>状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 数据集 -->
+  <div id="tab-datasets" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>导入训练数据集（JSON / JSONL / CSV）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>名称</label><input id="ds-name" placeholder="如：指令微调数据集"></div>
+        <div class="form-item"><label>类型</label>
+          <select id="ds-type">
+            <option value="instruction">instruction（指令）</option>
+            <option value="preference">preference（偏好）</option>
+            <option value="classification">classification（分类）</option>
+            <option value="qa">qa（问答）</option>
+            <option value="raw">raw（原始）</option>
+          </select>
+        </div>
+        <div class="form-item"><label>格式</label>
+          <select id="ds-format"><option value="json">JSON</option><option value="csv">CSV</option></select>
+        </div>
+        <div class="form-item"><label>标签(逗号)</label><input id="ds-tags" placeholder="如：微调,指令"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-item"><label>数据内容</label>
+          <textarea id="ds-content" style="min-width:600px;min-height:100px" placeholder='JSON: [{"instruction":"...","output":"..."}] 或 CSV: 首行表头'></textarea>
+        </div>
+        <button class="btn-primary" onclick="importDataset()">导入</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>上传文件导入（JSON / JSONL / CSV 自动识别）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>数据集名称</label><input id="dsf-name" placeholder="如：上传数据集"></div>
+        <div class="form-item"><label>类型</label>
+          <select id="dsf-type">
+            <option value="instruction">instruction（指令）</option>
+            <option value="preference">preference（偏好）</option>
+            <option value="classification">classification（分类）</option>
+            <option value="qa">qa（问答）</option>
+            <option value="raw">raw（原始）</option>
+          </select>
+        </div>
+        <div class="form-item"><label>选择文件</label><input type="file" id="dsf-file" accept=".json,.jsonl,.csv"></div>
+        <button class="btn-primary" onclick="uploadDataset()">上传导入</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>数据集列表</h2>
+      <table id="dataset-table"><thead><tr><th>名称</th><th>类型</th><th>样本数</th><th>标签</th><th>拆分状态</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>数据拆分（训练集 / 验证集 / 测试集）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择数据集</label><select id="split-dataset"></select></div>
+        <div class="form-item"><label>训练集比例</label><input id="split-train" value="0.8" style="width:80px"></div>
+        <div class="form-item"><label>验证集比例</label><input id="split-valid" value="0.1" style="width:80px"></div>
+        <div class="form-item"><label>测试集比例</label><input id="split-test" value="0.1" style="width:80px"></div>
+        <div class="form-item"><label>随机种子</label><input id="split-seed" value="42" style="width:80px"></div>
+        <button class="btn-primary" onclick="doSplit()">执行拆分</button>
+      </div>
+      <div id="split-result"></div>
+    </div>
+  </div>
+
+  <!-- 知识库 -->
+  <div id="tab-documents" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>新增知识文档（注入给模型）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>标题</label><input id="doc-title" placeholder="如：RAG 检索原理"></div>
+        <div class="form-item"><label>关联模型</label><select id="doc-model"></select></div>
+        <div class="form-item"><label>类型</label>
+          <select id="doc-type">
+            <option value="note">note（笔记）</option>
+            <option value="article">article（文章）</option>
+            <option value="reference">reference（参考）</option>
+            <option value="example">example（示例）</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="createDocument()">新增</button>
+      </div>
+      <div class="form-row">
+        <div class="form-item"><label>内容</label>
+          <textarea id="doc-content" style="min-width:600px;min-height:120px"></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-item"><label>附加图片（多模态，可选）</label><input type="file" id="doc-image" accept="image/*"></div>
+        <div class="form-item" style="font-size:12px;color:#888;align-self:flex-end">上传图片后，文档将同时向量化文本与图片，RAG 检索可召回图文。</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>知识文档列表</h2>
+      <table id="document-table"><thead><tr><th>标题</th><th>关联模型</th><th>类型</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 训练运行 -->
+  <div id="tab-runs" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>发起训练</h2>
+      <div class="form-row">
+        <div class="form-item"><label>训练名称</label><input id="r-name" placeholder="如：医疗问答微调 v1"></div>
+        <div class="form-item"><label>模型</label><select id="r-model"></select></div>
+        <div class="form-item"><label>数据集</label><select id="r-dataset"></select></div>
+        <div class="form-item"><label>训练类型</label>
+          <select id="r-type">
+            <option value="fine_tuning">fine_tuning（全参微调）</option>
+            <option value="lora">lora（LoRA 微调）</option>
+            <option value="rlhf">rlhf（RLHF）</option>
+            <option value="rag">rag（检索增强）</option>
+            <option value="embedding">embedding（向量化）</option>
+            <option value="eval">eval（评测）</option>
+          </select>
+        </div>
+        <div class="form-item"><label>执行模式</label>
+          <select id="r-mode">
+            <option value="simulate">simulate（模拟训练）</option>
+            <option value="real">real（真实训练）</option>
+          </select>
+        </div>
+        <button class="btn-primary" onclick="createRun()">创建</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>训练运行列表</h2>
+      <table id="run-table"><thead><tr><th>名称</th><th>模型</th><th>数据集</th><th>类型</th><th>状态</th><th>进度</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>实时训练进度</h2>
+      <div id="progress-panel" style="font-size:13px;color:#666;">点击某次训练的「异步执行」后，此处将实时显示进度与日志。</div>
+      <div id="progress-log" style="font-family:monospace;font-size:12px;color:#555;max-height:240px;overflow-y:auto;margin-top:8px;background:#fafbfd;border:1px solid #eee;border-radius:4px;padding:10px;"></div>
+    </div>
+    <div class="panel">
+      <h2>评测记录</h2>
+      <table id="eval-table"><thead><tr><th>训练</th><th>指标</th><th>数值</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 模型版本 -->
+  <div id="tab-versions" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>模型版本管理（训练产出 → 对比 → 发布 → 推理）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择模型</label><select id="v-model"></select></div>
+        <button class="btn-primary" onclick="loadVersions()">查询版本</button>
+      </div>
+      <table id="version-table"><thead><tr><th>模型</th><th>版本</th><th>状态</th><th>指标</th><th>备注</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>版本对比（横向选优）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择模型</label><select id="v-compare-model"></select></div>
+        <button class="btn-primary" onclick="compareVersions()">对比</button>
+      </div>
+      <div id="v-compare-result"></div>
+    </div>
+    <div class="panel">
+      <h2>模型推理（基于指定版本 / 已发布版本）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择模型</label><select id="v-infer-model"></select></div>
+        <div class="form-item"><label>版本(可选，留空用已发布)</label><input id="v-infer-version" placeholder="如：1" style="width:100px"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="v-infer-prompt" style="min-width:100%;width:100%" placeholder="输入推理内容，如：介绍一下你自己"></div>
+        <button class="btn-primary" onclick="doInfer()">推理</button>
+      </div>
+      <div id="v-infer-result"></div>
+    </div>
+  </div>
+
+  <!-- 智能助手 -->
+  <div id="tab-assistant" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>智能助手（基于知识库的 RAG 问答）</h2>
+      <div id="llm-status" style="font-size:12px;color:#888;margin-bottom:10px;">检测 LLM 后端中...</div>
+      <div class="chat-box" id="chat-box">
+        <div class="empty">请输入问题，助手将检索知识库并基于 LLM 生成回答</div>
+      </div>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="chat-input" style="min-width:100%;width:100%" placeholder="输入你的问题，如：什么是 RAG？"></div>
+        <button class="btn-primary" onclick="sendChat()">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NLP 自然语言处理 -->
+  <div id="tab-nlp" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>自然语言处理（NLP）功能</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择功能</label>
+          <select id="nlp-function" onchange="onNlpFunctionChange()">
+            <option value="sentiment">情感分析</option>
+            <option value="ner">命名实体识别</option>
+            <option value="keywords">关键词提取</option>
+            <option value="summary">文本摘要</option>
+            <option value="classify">文本分类</option>
+            <option value="translate">机器翻译</option>
+          </select>
+        </div>
+        <div class="form-item" id="nlp-extra-wrap" style="display:none"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><textarea id="nlp-text" style="min-width:100%;width:100%;min-height:100px" placeholder="输入要处理的文本"></textarea></div>
+      </div>
+      <button class="btn-primary" onclick="runNlp()">执行分析</button>
+      <div id="nlp-result" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
+  <!-- 向量检索 -->
+  <div id="tab-vector" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>相似度检索（RAG 召回）</h2>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="vs-query" style="min-width:400px" placeholder="输入查询文本，如：向量数据库"></div>
+        <button class="btn-primary" onclick="doSearch()">检索</button>
+      </div>
+      <div id="vs-result"></div>
+    </div>
+    <div class="panel">
+      <h2>相似度自动归类</h2>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="va-text" style="min-width:400px" placeholder="输入一段文本，自动匹配最相近的技能"></div>
+        <button class="btn-primary" onclick="doAutoAssign()">自动归类</button>
+      </div>
+      <div id="va-result"></div>
+    </div>
+    <div class="panel">
+      <h2>构建向量数据库</h2>
+      <div class="form-row">
+        <button class="btn-primary" onclick="indexSkills()">向量化所有技能</button>
+        <button class="btn-primary" onclick="indexDocuments()">向量化所有知识文档</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showMsg(text, type) {
+  const m = document.getElementById('msg');
+  m.textContent = text;
+  m.className = 'msg ' + (type || 'ok');
+  setTimeout(() => { m.className = 'msg'; }, 3000);
+}
+async function api(method, url, body) {
+  const opt = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(url, opt);
+  const j = await r.json();
+  if (j.code !== 0) throw new Error(j.msg || '操作失败');
+  return j.data;
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.style.display = 'none');
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).style.display = 'block';
+    loadAll();
+  };
+});
+
+function fillSelect(id, rows, fn) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = rows.map(r => `<option value="${r._id}">${fn(r)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+// ============ 模型管理 ============
+async function loadModels() {
+  const data = await api('GET', '/api/models?size=500');
+  const tb = document.querySelector('#model-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">暂无模型，请先注册</td></tr>'; }
+  const statusClass = {registered:'badge-registered',training:'badge-training',ready:'badge-ready',deprecated:'badge-deprecated'};
+  data.rows.forEach(m => {
+    const tr = document.createElement('tr');
+    const sc = statusClass[m.status] || 'badge-registered';
+    const srcText = m.source_path ? `${m.base_model} <span style="font-size:11px;color:#888">(${m.source_path})</span>` : m.base_model;
+    tr.innerHTML = `<td>${m.name}</td><td>${srcText}</td><td>${m.model_type}</td>
+      <td><span class="tag">${m.source_label||'已注册模型'}</span></td>
+      <td><span class="badge ${sc}">${m.status}</span></td>
+      <td>${m.skill_count}</td><td>${m.run_count}</td>
+      <td class="actions">
+        <button class="btn-sm" style="background:#eef3fa" onclick="mountSkill('${m._id}')">挂载技能</button>
+        <button class="btn-danger btn-sm" onclick="delModel('${m._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+  fillSelect('p-model', data.rows, m=>m.name);
+  fillSelect('r-model', data.rows, m=>m.name);
+  fillSelect('doc-model', data.rows, m=>m.name);
+  fillSelect('v-model', data.rows, m=>m.name);
+  fillSelect('v-compare-model', data.rows, m=>m.name);
+  fillSelect('v-infer-model', data.rows, m=>m.name);
+}
+
+// ============ 模型来源选择 ============
+const SOURCE_PLACEHOLDER = {
+  registered: '如：Qwen2.5-7B',
+  local_dir: '如：D:/models/qwen2.5-7b',
+  local_file: '如：D:/models/qwen2.5-7b/model.safetensors',
+  huggingface: '如：Qwen/Qwen2.5-7B',
+  url: '如：https://.../model.tar.gz',
+};
+const SOURCE_LABEL = {
+  registered: '基座模型名称',
+  local_dir: '本地文件夹路径',
+  local_file: '本地文件路径',
+  huggingface: 'HuggingFace 仓库 ID',
+  url: '远程下载 URL',
+};
+function onSourceTypeChange() {
+  const t = document.getElementById('m-source-type').value;
+  document.getElementById('m-base-label').textContent = SOURCE_LABEL[t];
+  document.getElementById('m-base').placeholder = SOURCE_PLACEHOLDER[t];
+  document.getElementById('m-browse-wrap').style.display = (t === 'local_dir' || t === 'local_file') ? 'block' : 'none';
+  document.getElementById('m-source-hint').textContent = '';
+}
+async function browseDir() {
+  const box = document.getElementById('dir-browser');
+  box.style.display = 'block';
+  try {
+    const d = await api('POST', '/api/models/browse-dir', { path: currentBrowsePath || null });
+    renderDirBrowser(d);
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+let currentBrowsePath = null;
+function renderDirBrowser(d) {
+  currentBrowsePath = d.current;
+  const pathEl = document.getElementById('dir-path');
+  pathEl.innerHTML = `当前位置：<b>${d.current || '（请选择驱动器）'}</b>` +
+    (d.parent ? ` <a href="javascript:void(0)" onclick="navigateDir('${d.parent}')">⬆ 上级</a>` : '');
+  const list = document.getElementById('dir-list');
+  let html = '';
+  if (d.drives && d.drives.length) {
+    html += d.drives.map(dr => `<div style="padding:4px;cursor:pointer" onclick="navigateDir('${dr.path}')">📁 ${dr.name}</div>`).join('');
+  }
+  html += d.dirs.map(x => `<div style="padding:4px;cursor:pointer" onclick="navigateDir('${x.path}')">📁 ${x.name}</div>`).join('');
+  html += d.files.map(x => `<div style="padding:4px;color:#888" onclick="pickFile('${x.path}')">📄 ${x.name} <span style="font-size:11px">(${(x.size/1024).toFixed(1)} KB)</span></div>`).join('');
+  list.innerHTML = html || '<div class="empty">空目录</div>';
+}
+async function navigateDir(path) {
+  try {
+    const d = await api('POST', '/api/models/browse-dir', { path });
+    renderDirBrowser(d);
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+function pickFile(path) {
+  document.getElementById('m-base').value = path;
+}
+async function createModel() {
+  try {
+    const sourceType = document.getElementById('m-source-type').value;
+    const base = document.getElementById('m-base').value.trim();
+    if (!base && sourceType !== 'registered') { showMsg('请填写模型路径/仓库 ID', 'error'); return; }
+    const payload = {
+      name: document.getElementById('m-name').value,
+      base_model: base || document.getElementById('m-name').value,
+      model_type: document.getElementById('m-type').value,
+      description: document.getElementById('m-desc').value,
+      source: { source_type: sourceType, source_path: base },
+    };
+    await api('POST', '/api/models', payload);
+    showMsg('模型注册成功');
+    document.getElementById('m-name').value=''; document.getElementById('m-base').value='';
+    document.getElementById('dir-browser').style.display = 'none';
+    loadModels();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function delModel(id) {
+  if (!confirm('确认删除该模型？将级联清理其参数、训练运行与评测。')) return;
+  try { await api('DELETE', '/api/models/'+id); showMsg('删除成功'); loadModels(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function mountSkill(modelId) {
+  const data = await api('GET', '/api/skills?size=500');
+  const name = prompt('输入要挂载的技能名称（可先到「技能扩展」页查看）：');
+  if (!name) return;
+  const skill = data.rows.find(s => s.name === name);
+  if (!skill) { showMsg('技能不存在：' + name, 'error'); return; }
+  try { await api('POST', `/api/models/${modelId}/skills/${skill._id}`); showMsg('技能挂载成功'); loadModels(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 参数调配 ============
+const PARAM_LABELS = {
+  learning_rate:'学习率', batch_size:'批大小', epochs:'训练轮数',
+  temperature:'温度', top_p:'Top-P', max_tokens:'最大Token',
+  weight_decay:'权重衰减', gradient_accumulation_steps:'梯度累积步数',
+  optimizer:'优化器', lr_scheduler:'学习率调度',
+  embedding_dim:'向量维度', max_seq_length:'最大序列长度', image_size:'图像尺寸'
+};
+let currentParams = {};
+async function loadParams() {
+  const mid = document.getElementById('p-model').value;
+  if (!mid) { showMsg('请先选择模型', 'error'); return; }
+  try {
+    const d = await api('GET', `/api/models/${mid}/params`);
+    currentParams = d.params || {};
+    const grid = document.getElementById('param-grid');
+    grid.innerHTML = '';
+    Object.keys(currentParams).forEach(k => {
+      const label = PARAM_LABELS[k] || k;
+      const item = document.createElement('div');
+      item.className = 'param-item';
+      item.innerHTML = `<label>${label}（${k}）</label><input id="param-${k}" value="${currentParams[k]}">`;
+      grid.appendChild(item);
+    });
+    document.getElementById('param-result').innerHTML = '';
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function saveParams() {
+  const mid = document.getElementById('p-model').value;
+  if (!mid) { showMsg('请先选择模型', 'error'); return; }
+  const params = {};
+  Object.keys(currentParams).forEach(k => {
+    const v = document.getElementById('param-'+k).value;
+    params[k] = isNaN(Number(v)) ? v : Number(v);
+  });
+  try {
+    await api('PUT', `/api/models/${mid}/params`, { params });
+    showMsg('参数保存成功');
+    document.getElementById('param-result').innerHTML = '<div class="rec-item">参数已更新，下次训练将使用这些超参数</div>';
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function resetParams() {
+  const mid = document.getElementById('p-model').value;
+  if (!mid) { showMsg('请先选择模型', 'error'); return; }
+  try { await api('POST', `/api/models/${mid}/params/reset`); showMsg('已重置为默认参数'); loadParams(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 技能扩展 ============
+async function loadSkills() {
+  const data = await api('GET', '/api/skills?size=500');
+  const tb = document.querySelector('#skill-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">暂无技能，请先新增</td></tr>'; }
+  data.rows.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.name}</td><td>${s.category}</td><td>${s.model_name||'-'}</td>
+      <td>${s.enabled?'启用':'停用'}</td>
+      <td class="actions">
+        <button class="btn-sm" style="background:#e8f5e9" onclick="toggleSkill('${s._id}',${!s.enabled})">${s.enabled?'停用':'启用'}</button>
+        <button class="btn-danger btn-sm" onclick="delSkill('${s._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function createSkill() {
+  try {
+    await api('POST', '/api/skills', {
+      name: document.getElementById('s-name').value,
+      category: document.getElementById('s-category').value,
+      description: document.getElementById('s-desc').value,
+      prompt_template: document.getElementById('s-prompt').value,
+    });
+    showMsg('技能新增成功');
+    document.getElementById('s-name').value=''; document.getElementById('s-desc').value=''; document.getElementById('s-prompt').value='';
+    loadSkills();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function toggleSkill(id, enabled) {
+  try { await api('PUT', '/api/skills/'+id, { enabled }); loadSkills(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function delSkill(id) {
+  if (!confirm('确认删除该技能？')) return;
+  try { await api('DELETE', '/api/skills/'+id); showMsg('删除成功'); loadSkills(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 数据集 ============
+async function loadDatasets() {
+  const data = await api('GET', '/api/datasets?size=500');
+  const tb = document.querySelector('#dataset-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">暂无数据集，请先导入</td></tr>'; }
+  data.rows.forEach(d => {
+    const tr = document.createElement('tr');
+    const splitInfo = d.splits ? d.splits.counts : null;
+    const splitText = splitInfo ? `train:${splitInfo.train} / valid:${splitInfo.valid} / test:${splitInfo.test}` : '未拆分';
+    tr.innerHTML = `<td>${d.name}</td><td>${d.dataset_type}</td><td>${d.sample_count}</td>
+      <td>${(d.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</td>
+      <td>${splitText}</td>
+      <td class="actions"><button class="btn-danger btn-sm" onclick="delDataset('${d._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+  fillSelect('r-dataset', data.rows, d=>d.name);
+  fillSelect('split-dataset', data.rows, d=>d.name);
+}
+async function uploadDataset() {
+  const file = document.getElementById('dsf-file').files[0];
+  const name = document.getElementById('dsf-name').value;
+  if (!file || !name) { showMsg('请填写名称并选择文件', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('name', name);
+  fd.append('dataset_type', document.getElementById('dsf-type').value);
+  try {
+    const r = await fetch('/api/datasets/import-file', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (j.code !== 0) throw new Error(j.msg || '上传失败');
+    showMsg('文件导入成功');
+    document.getElementById('dsf-name').value='';
+    document.getElementById('dsf-file').value='';
+    loadDatasets();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function doSplit() {
+  const did = document.getElementById('split-dataset').value;
+  if (!did) { showMsg('请选择数据集', 'error'); return; }
+  try {
+    const d = await api('POST', `/api/datasets/${did}/split`, {
+      train_ratio: parseFloat(document.getElementById('split-train').value),
+      valid_ratio: parseFloat(document.getElementById('split-valid').value),
+      test_ratio: parseFloat(document.getElementById('split-test').value),
+      seed: parseInt(document.getElementById('split-seed').value),
+    });
+    document.getElementById('split-result').innerHTML =
+      `<div class="rec-item">拆分完成：训练集 <b>${d.counts.train}</b> · 验证集 <b>${d.counts.valid}</b> · 测试集 <b>${d.counts.test}</b></div>`;
+    showMsg('数据拆分成功');
+    loadDatasets();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function importDataset() {
+  try {
+    const fmt = document.getElementById('ds-format').value;
+    await api('POST', '/api/datasets/import', {
+      name: document.getElementById('ds-name').value,
+      dataset_type: document.getElementById('ds-type').value,
+      tags: document.getElementById('ds-tags').value.split(',').map(x=>x.trim()).filter(Boolean),
+      format: fmt,
+      content: document.getElementById('ds-content').value,
+    });
+    showMsg('数据集导入成功');
+    document.getElementById('ds-name').value=''; document.getElementById('ds-content').value='';
+    loadDatasets();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function delDataset(id) {
+  if (!confirm('确认删除该数据集？')) return;
+  try { await api('DELETE', '/api/datasets/'+id); showMsg('删除成功'); loadDatasets(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 知识库 ============
+async function loadDocuments() {
+  const data = await api('GET', '/api/documents?size=500');
+  const tb = document.querySelector('#document-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">暂无知识文档</td></tr>'; }
+  data.rows.forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${d.title}</td><td>${d.model_name||'-'}</td><td>${d.doc_type}</td>
+      <td class="actions"><button class="btn-danger btn-sm" onclick="delDocument('${d._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function createDocument() {
+  try {
+    const file = document.getElementById('doc-image').files[0];
+    let image_b64 = null, image_mime = null;
+    if (file) {
+      image_b64 = await fileToBase64(file);
+      image_mime = file.type || 'image/jpeg';
+    }
+    await api('POST', '/api/documents', {
+      title: document.getElementById('doc-title').value,
+      content: document.getElementById('doc-content').value,
+      model_id: document.getElementById('doc-model').value || null,
+      doc_type: document.getElementById('doc-type').value,
+      image_b64: image_b64,
+      image_mime: image_mime,
+    });
+    showMsg('文档新增成功' + (image_b64 ? '（含图片，已多模态向量化）' : ''));
+    document.getElementById('doc-title').value=''; document.getElementById('doc-content').value='';
+    document.getElementById('doc-image').value='';
+    loadDocuments();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];  // 去掉 data:...;base64, 前缀
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function delDocument(id) {
+  if (!confirm('确认删除该文档？')) return;
+  try { await api('DELETE', '/api/documents/'+id); showMsg('删除成功'); loadDocuments(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 训练运行 ============
+async function loadRuns() {
+  const data = await api('GET', '/api/runs?size=500');
+  const tb = document.querySelector('#run-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">暂无训练运行</td></tr>'; }
+  const statusClass = {pending:'badge-pending',running:'badge-running',completed:'badge-completed',failed:'badge-failed'};
+  data.rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const sc = statusClass[r.status] || 'badge-pending';
+    const prog = r.progress ? Math.round(r.progress*100) : 0;
+    tr.innerHTML = `<td>${r.name}</td><td>${r.model_name||'-'}</td><td>${r.dataset_name||'-'}</td><td>${r.task_type}</td>
+      <td><span class="badge ${sc}">${r.status}</span></td>
+      <td><div class="progress-bar"><div class="fill" style="width:${prog}%"></div></div>${prog}%</td>
+      <td class="actions">
+        <button class="btn-sm" style="background:#e8f5e9" onclick="executeRun('${r._id}')">执行</button>
+        <button class="btn-sm" style="background:#fff3e0" onclick="startRunAsync('${r._id}')">异步执行</button>
+        <button class="btn-danger btn-sm" onclick="delRun('${r._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+  loadEvaluations();
+}
+async function createRun() {
+  try {
+    await api('POST', '/api/runs', {
+      name: document.getElementById('r-name').value,
+      model_id: document.getElementById('r-model').value,
+      dataset_id: document.getElementById('r-dataset').value,
+      task_type: document.getElementById('r-type').value,
+      mode: document.getElementById('r-mode').value,
+    });
+    showMsg('训练运行创建成功');
+    document.getElementById('r-name').value='';
+    loadRuns();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function executeRun(id) {
+  showMsg('训练执行中，请稍候...');
+  try {
+    const d = await api('POST', `/api/runs/${id}/execute`);
+    showMsg(`训练完成：loss=${d.metrics.final_loss}，accuracy=${d.metrics.accuracy}`);
+    loadRuns();
+    loadVersions();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+let progressTimer = null;
+async function startRunAsync(id) {
+  try {
+    await api('POST', `/api/runs/${id}/start-async`);
+    showMsg('已在后台异步执行，下方实时刷新进度');
+    document.getElementById('progress-panel').innerHTML = '训练已启动，正在轮询进度...';
+    document.getElementById('progress-log').innerHTML = '';
+    pollProgress(id);
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function pollProgress(id) {
+  if (progressTimer) clearInterval(progressTimer);
+  progressTimer = setInterval(async () => {
+    try {
+      const p = await api('GET', `/api/runs/${id}/progress`);
+      const panel = document.getElementById('progress-panel');
+      const statusText = {pending:'待执行',running:'训练中',completed:'已完成',failed:'失败'};
+      const prog = Math.round((p.progress||0)*100);
+      panel.innerHTML = `状态：<b>${statusText[p.status]||p.status}</b> · 进度：<b>${prog}%</b>` +
+        `<div class="progress-bar"><div class="fill" style="width:${prog}%"></div></div>`;
+      const log = document.getElementById('progress-log');
+      log.innerHTML = (p.logs||[]).map(l => {
+        if (l.error) return `<span style="color:#c62828">[错误] ${l.error}</span>`;
+        if (l.output) return `<span>[输出] ${l.output}</span>`;
+        return `<span>[epoch ${l.epoch} · step ${l.step}] loss=${l.loss} lr=${l.lr}</span>`;
+      }).join('<br>');
+      log.scrollTop = log.scrollHeight;
+      if (p.status === 'completed' || p.status === 'failed') {
+        clearInterval(progressTimer);
+        loadRuns();
+        loadVersions();
+        if (p.status === 'completed') showMsg('训练完成，已自动生成模型版本');
+      }
+    } catch(e) { clearInterval(progressTimer); }
+  }, 1000);
+}
+async function delRun(id) {
+  if (!confirm('确认删除该训练运行？将级联删除其评测。')) return;
+  try { await api('DELETE', '/api/runs/'+id); showMsg('删除成功'); loadRuns(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function loadEvaluations() {
+  const data = await api('GET', '/api/evaluations?size=500');
+  const tb = document.querySelector('#eval-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">暂无评测记录</td></tr>'; return; }
+  const runs = await api('GET', '/api/runs?size=500');
+  const nameMap = {}; runs.rows.forEach(r => nameMap[r._id] = r.name);
+  data.rows.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${nameMap[e.run_id]||'-'}</td><td>${e.metric}</td><td>${e.value}</td>
+      <td class="actions"><button class="btn-danger btn-sm" onclick="delEvaluation('${e._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function delEvaluation(id) {
+  if (!confirm('确认删除该评测？')) return;
+  try { await api('DELETE', '/api/evaluations/'+id); showMsg('删除成功'); loadEvaluations(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 模型版本管理 ============
+const VERSION_STATUS = {draft:'草稿',released:'已发布',archived:'已归档'};
+const VERSION_STATUS_CLASS = {draft:'badge-pending',released:'badge-completed',archived:'badge-deprecated'};
+async function loadVersions() {
+  const mid = document.getElementById('v-model').value;
+  const url = mid ? `/api/versions?model_id=${mid}&size=500` : '/api/versions?size=500';
+  const data = await api('GET', url);
+  const tb = document.querySelector('#version-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">暂无版本，训练完成后会自动生成版本</td></tr>'; }
+  data.rows.forEach(v => {
+    const tr = document.createElement('tr');
+    const sc = VERSION_STATUS_CLASS[v.status] || 'badge-pending';
+    const metrics = v.metrics ? Object.entries(v.metrics).map(([k,val]) => `${k}:${typeof val==='number'?val.toFixed(4):val}`).join(' · ') : '-';
+    tr.innerHTML = `<td>${v.model_name||'-'}</td><td><b>${v.version_label}</b></td>
+      <td><span class="badge ${sc}">${VERSION_STATUS[v.status]||v.status}</span></td>
+      <td style="font-size:12px">${metrics}</td><td>${v.note||'-'}</td>
+      <td class="actions">
+        ${v.status!=='released' ? `<button class="btn-sm" style="background:#e8f5e9" onclick="releaseVersion('${v._id}')">发布</button>` : ''}
+        ${v.status!=='archived' ? `<button class="btn-sm" style="background:#eee" onclick="archiveVersion('${v._id}')">归档</button>` : ''}
+        <button class="btn-danger btn-sm" onclick="delVersion('${v._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function releaseVersion(id) {
+  try { await api('POST', `/api/versions/${id}/release`); showMsg('版本已发布（旧版本自动归档）'); loadVersions(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function archiveVersion(id) {
+  try { await api('POST', `/api/versions/${id}/archive`); showMsg('版本已归档'); loadVersions(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function delVersion(id) {
+  if (!confirm('确认删除该版本？')) return;
+  try { await api('DELETE', '/api/versions/'+id); showMsg('删除成功'); loadVersions(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function compareVersions() {
+  const mid = document.getElementById('v-compare-model').value;
+  if (!mid) { showMsg('请选择模型', 'error'); return; }
+  try {
+    const d = await api('GET', `/api/versions/compare/${mid}`);
+    const box = document.getElementById('v-compare-result');
+    if (!d.rows.length) { box.innerHTML = '<div class="empty">该模型暂无版本</div>'; return; }
+    const metricNames = d.metrics;
+    let html = '<table><thead><tr><th>版本</th><th>状态</th>' + metricNames.map(m=>`<th>${m}</th>`).join('') + '<th>备注</th></tr></thead><tbody>';
+    d.rows.forEach(r => {
+      html += `<tr><td><b>${r.version}</b></td><td>${VERSION_STATUS[r.status]||r.status}</td>` +
+        metricNames.map(m => `<td>${r.metrics[m]!==undefined ? (typeof r.metrics[m]==='number'?r.metrics[m].toFixed(4):r.metrics[m]) : '-'}</td>`).join('') +
+        `<td>${r.note||''}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    box.innerHTML = html;
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function doInfer() {
+  const mid = document.getElementById('v-infer-model').value;
+  const prompt = document.getElementById('v-infer-prompt').value.trim();
+  if (!mid || !prompt) { showMsg('请选择模型并输入推理内容', 'error'); return; }
+  const version = document.getElementById('v-infer-version').value.trim();
+  try {
+    const d = await api('POST', `/api/models/${mid}/infer`, { prompt, version: version || null });
+    document.getElementById('v-infer-result').innerHTML =
+      `<div class="rec-item"><b>${d.model_name} ${d.version}</b>（${d.backend}）
+       ${d.skills&&d.skills.length ? '· 技能：'+d.skills.join('、') : ''}
+       <div style="margin-top:8px;line-height:1.6">${d.answer.replace(/</g,'&lt;')}</div></div>`;
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 智能助手 ============
+async function loadLlmStatus() {
+  try {
+    const d = await api('GET', '/api/llm/status');
+    const el = document.getElementById('llm-status');
+    if (d.llm_backend) {
+      el.textContent = `LLM 后端：${d.llm_backend}（${d.llm_model}）· 向量模型：${d.embed_model}`;
+    } else {
+      el.textContent = '⚠ 未配置 LLM 后端：请设置 LLM_API_KEY 或启动本地 Ollama（详见 README）';
+    }
+  } catch(e) { document.getElementById('llm-status').textContent = 'LLM 状态获取失败'; }
+}
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const q = input.value.trim();
+  if (!q) return;
+  const box = document.getElementById('chat-box');
+  box.innerHTML = box.innerHTML.replace(/<div class="empty">.*<\/div>/, '');
+  box.innerHTML += `<div class="chat-msg user"><div class="bubble">${q.replace(/</g,'&lt;')}</div></div>`;
+  input.value = '';
+  box.innerHTML += `<div class="chat-msg assistant"><div class="bubble">思考中...</div></div>`;
+  box.scrollTop = box.scrollHeight;
+  try {
+    const d = await api('POST', '/api/llm/chat', { question: q, conversation_id: 'web', top_k: 5 });
+    const bubbles = box.querySelectorAll('.chat-msg.assistant .bubble');
+    const last = bubbles[bubbles.length - 1];
+    last.textContent = d.answer;
+  } catch(e) {
+    const bubbles = box.querySelectorAll('.chat-msg.assistant .bubble');
+    bubbles[bubbles.length - 1].textContent = '错误：' + e.message;
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+// ============ 向量检索 ============
+async function doSearch() {
+  const q = document.getElementById('vs-query').value.trim();
+  if (!q) { showMsg('请输入查询文本', 'error'); return; }
+  try {
+    const d = await api('GET', '/api/vector/search?q=' + encodeURIComponent(q) + '&limit=5');
+    const box = document.getElementById('vs-result');
+    if (!d.rows.length) { box.innerHTML = '<div class="empty">无匹配结果，请先构建向量数据库</div>'; return; }
+    box.innerHTML = d.rows.map(r => {
+      const img = r.image ? `<img src="${r.image}" style="max-width:120px;max-height:120px;border-radius:4px;margin-top:6px;display:block">` : '';
+      const typeTag = r.content_type === 'image' ? '<span class="tag">图片</span>' : '<span class="tag">文本</span>';
+      return `<div class="rec-item"><b>${r.title||'未命名'}</b> ${typeTag}
+       <span style="float:right;color:#1a3c6e">相似度 ${r.score}</span>
+       <div class="score-bar" style="width:${Math.max(4, r.score*200)}px"></div>
+       <div style="font-size:12px;color:#888;margin-top:4px">${r.text||''}</div>${img}</div>`;
+    }).join('');
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ============ NLP 功能 ============
+const NLP_EXTRA = {
+  keywords: '<label>关键词数量</label><input id="nlp-topk" value="5" style="width:60px">',
+  summary: '<label>摘要长度</label><input id="nlp-maxlen" value="100" style="width:80px">',
+  classify: '<label>类别(逗号分隔，留空用默认)</label><input id="nlp-cats" placeholder="科技,财经,医疗" style="width:200px">',
+  translate: '<label>目标语言</label><input id="nlp-lang" value="英文" style="width:100px">',
+};
+function onNlpFunctionChange() {
+  const f = document.getElementById('nlp-function').value;
+  const wrap = document.getElementById('nlp-extra-wrap');
+  wrap.innerHTML = NLP_EXTRA[f] || '';
+}
+async function runNlp() {
+  const f = document.getElementById('nlp-function').value;
+  const text = document.getElementById('nlp-text').value.trim();
+  if (!text) { showMsg('请输入要处理的文本', 'error'); return; }
+  const params = { text };
+  if (f === 'keywords') params.top_k = parseInt(document.getElementById('nlp-topk')?.value || 5);
+  if (f === 'summary') params.max_len = parseInt(document.getElementById('nlp-maxlen')?.value || 100);
+  if (f === 'classify') {
+    const cats = document.getElementById('nlp-cats')?.value.split(',').map(x=>x.trim()).filter(Boolean);
+    if (cats.length) params.categories = cats;
+  }
+  if (f === 'translate') params.target_lang = document.getElementById('nlp-lang')?.value || '英文';
+  try {
+    const d = await api('POST', '/api/nlp/run', { function: f, params });
+    document.getElementById('nlp-result').innerHTML = renderNlpResult(f, d);
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+function renderNlpResult(f, d) {
+  const r = d.result || {};
+  const method = d.method === 'llm' ? 'LLM' : '离线规则';
+  let body = '';
+  if (f === 'sentiment') {
+    const cls = {positive:'badge-completed',negative:'badge-failed',neutral:'badge-pending'}[r.label] || 'badge-pending';
+    body = `<span class="badge ${cls}" style="font-size:14px">${r.label_cn}（${r.label}）</span> 置信度 ${r.confidence}`;
+  } else if (f === 'ner') {
+    const ents = Array.isArray(r.entities) ? r.entities.map(e => `<span class="tag">${e.type}:${e.value}</span>`).join(' ') : r.entities;
+    body = ents || '无实体';
+  } else if (f === 'keywords') {
+    body = (r.keywords||[]).map(k => `<span class="tag">${k}</span>`).join(' ') || '无';
+  } else if (f === 'summary') {
+    body = `<div style="line-height:1.6">${r.summary}</div>`;
+  } else if (f === 'classify') {
+    body = `类别：<b>${r.category}</b>`;
+  } else if (f === 'translate') {
+    body = `<div style="line-height:1.6">${r.translation}${r.note ? ' <span style="font-size:12px;color:#888">('+r.note+')</span>' : ''}</div>`;
+  }
+  return `<div class="rec-item"><b>分析结果</b> <span style="float:right;font-size:12px;color:#888">后端：${d.backend} · 方法：${method}</span><div style="margin-top:8px">${body}</div></div>`;
+}
+async function doAutoAssign() {
+  const text = document.getElementById('va-text').value.trim();
+  if (!text) { showMsg('请输入文本', 'error'); return; }
+  try {
+    const d = await api('POST', '/api/vector/auto-assign', { text: text, top_k: 3 });
+    const box = document.getElementById('va-result');
+    box.innerHTML = `<div class="rec-item"><b>自动归类结果：</b><br>` +
+      (d.matches.length ? d.matches.map(m => `→ ${m.title}（相似度 ${m.score}）`).join('<br>') : '（无可用技能锚点）') + '</div>';
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function indexSkills() {
+  try { const d = await api('POST', '/api/vector/index-skills'); showMsg(`已向量化 ${d.indexed} 个技能`); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+async function indexDocuments() {
+  try { const d = await api('POST', '/api/vector/index-documents'); showMsg(`已向量化 ${d.indexed} 篇文档`); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+function loadAll() {
+  loadModels().catch(e=>showMsg(e.message,'error'));
+  loadSkills().catch(e=>showMsg(e.message,'error'));
+  loadDatasets().catch(e=>showMsg(e.message,'error'));
+  loadDocuments().catch(e=>showMsg(e.message,'error'));
+  loadRuns().catch(e=>showMsg(e.message,'error'));
+  loadVersions().catch(e=>showMsg(e.message,'error'));
+  loadLlmStatus();
+}
+
+loadAll();
+</script>
+</body>
+</html>

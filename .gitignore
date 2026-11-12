@@ -1,0 +1,20 @@
+# MongoDB 本地数据目录（运行数据，不上传）
+.demo_mongo/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# 临时文件
+*.log
+*.tmp
+*.bak

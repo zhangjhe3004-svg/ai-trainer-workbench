@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>基于 MongoDB 的技能图谱学习推荐系统设计与实现报告</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "SimSun", "宋体", serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    color: #222;
+  }
+  h1, h2, h3 {
+    font-family: "SimHei", "黑体", "SimSun", serif;
+    font-weight: 500;
+    color: #1a3c6e;
+  }
+  h1 { font-size: 16pt; margin: 28px 0 14px; }
+  h2 { font-size: 14pt; margin: 22px 0 10px; color: #1f4e8c; }
+  h3 { font-size: 13pt; margin: 18px 0 8px; }
+  p { text-indent: 2em; margin: 6px 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 11pt;
+  }
+  table th, table td {
+    border: 1px solid #999;
+    padding: 6px 8px;
+    text-align: left;
+    text-indent: 0;
+  }
+  table th { background: #eef3fa; font-weight: 500; }
+  pre {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 10pt;
+    background: #f6f8fb;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    text-indent: 0;
+  }
+  code { font-family: "Consolas", "Courier New", monospace; }
+  .toc-list, .toc-list ol, .toc-list ul { list-style: none; }
+
+  /* 封面 */
+  .cover { text-align: center; padding: 120px 40px 60px; }
+  .cover .school { font-size: 22pt; font-weight: bold; margin-bottom: 30px; color: #1a3c6e; }
+  .cover .course { font-size: 16pt; margin-bottom: 60px; }
+  .cover .title { font-size: 26pt; font-weight: bold; margin-bottom: 50px; color: #1a3c6e; line-height: 1.5; }
+  .cover .subtitle { font-size: 14pt; margin-bottom: 80px; color: #555; }
+  .cover .info { font-size: 14pt; line-height: 2.2; text-align: left; display: inline-block; }
+  .cover .date { font-size: 14pt; margin-top: 60px; }
+
+  /* 目录 */
+  .toc-title { text-align: center; font-size: 18pt; font-weight: bold; margin-bottom: 24px; color: #1a3c6e; }
+  .toc-list { font-size: 12pt; line-height: 2; }
+  .toc-list li { margin: 2px 0; }
+  .toc-list a { color: #222; text-decoration: none; }
+  .toc-list ol { padding-left: 2em; }
+
+  /* 页面规则 */
+  @page { @bottom-center { content: "第 " counter(page) " 页"; } }
+  @page cover { @bottom-center { content: none; } }
+  section[role="cover"] { page: cover; }
+</style>
+</head>
+<body>
+
+<section role="cover">
+  <div class="cover">
+    <p class="school">华南农业大学珠江学院</p>
+    <p class="course">《高级数据库》课程考试（2026—2027 学年第一学期）</p>
+    <p class="title">基于 MongoDB 的技能图谱学习推荐系统<br>设计与实现报告</p>
+    <p class="subtitle">NoSQL 期末大作业</p>
+    <p class="info">
+      二级学院：____________________<br>
+      专业班级：____________________<br>
+      学　　号：____________________<br>
+      姓　　名：____________________
+    </p>
+    <p class="date">2026 年 11 月</p>
+  </div>
+</section>
+
+<section role="cover">
+  <nav class="doc-toc" aria-label="文档目录">
+    <p class="toc-title">目　　录</p>
+    <ol class="toc-list">
+      <li><a href="#section-1">1　总体设计与选型分析</a>
+        <ol>
+          <li><a href="#section-2">1.1　业务场景与数据特征</a></li>
+          <li><a href="#section-3">1.2　选型分析</a></li>
+          <li><a href="#section-4">1.3　系统架构设计</a></li>
+          <li><a href="#section-5">1.4　数据流设计</a></li>
+        </ol>
+      </li>
+      <li><a href="#section-6">2　数据模型设计</a>
+        <ol>
+          <li><a href="#section-7">2.1　概念模型</a></li>
+          <li><a href="#section-8">2.2　集合结构总览</a></li>
+          <li><a href="#section-9">2.3　核心文档结构</a></li>
+          <li><a href="#section-10">2.4　内嵌与引用的取舍</a></li>
+          <li><a href="#section-11">2.5　字段命名与类型规范</a></li>
+          <li><a href="#section-12">2.6　索引与 TTL 规划</a></li>
+        </ol>
+      </li>
+      <li><a href="#section-13">3　数据操作与业务功能实现</a>
+        <ol>
+          <li><a href="#section-14">3.1　环境部署</a></li>
+          <li><a href="#section-15">3.2　数据库与集合创建</a></li>
+          <li><a href="#section-16">3.3　数据构造</a></li>
+          <li><a href="#section-17">3.4　文档增删改查</a></li>
+          <li><a href="#section-18">3.5　聚合管道统计</a></li>
+          <li><a href="#section-19">3.6　索引优化与 explain() 对比</a></li>
+          <li><a href="#section-20">3.7　访问控制</a></li>
+        </ol>
+      </li>
+      <li><a href="#section-21">4　业务应用实现</a>
+        <ol>
+          <li><a href="#section-22">4.1　业务功能闭环</a></li>
+          <li><a href="#section-23">4.2　工程结构</a></li>
+          <li><a href="#section-24">4.3　关键实现</a></li>
+          <li><a href="#section-25">4.4　运行结果</a></li>
+        </ol>
+      </li>
+      <li><a href="#section-26">5　结果分析</a>
+        <ol>
+          <li><a href="#section-27">5.1　功能完成情况</a></li>
+          <li><a href="#section-28">5.2　性能分析</a></li>
+          <li><a href="#section-29">5.3　设计得失</a></li>
+        </ol>
+      </li>
+      <li><a href="#section-30">6　遇到的问题及解决办法</a></li>
+      <li><a href="#section-31">7　提交物与复现说明</a>
+        <ol>
+          <li><a href="#section-32">7.1　提交物清单</a></li>
+          <li><a href="#section-33">7.2　目录结构与执行顺序</a></li>
+          <li><a href="#section-34">7.3　运行环境</a></li>
+          <li><a href="#section-35">7.4　复现注意事项</a></li>
+        </ol>
+      </li>
+    </ol>
+  </nav>
+</section>
+
+<section class="chapter" data-page-restart="1">
+
+<h1 id="section-1">1　总体设计与选型分析</h1>
+
+<h2 id="section-2">1.1　业务场景与数据特征</h2>
+<p>本系统面向个人学习者的「技能图谱学习推荐」场景：学习者围绕一个个「技能点（Skill）」展开练习与自评，系统基于其练习行为序列与技能之间的依赖关系，为其推荐下一步最该学习的技能，实现个性化学习路径规划。</p>
+<p>系统包含四类核心实体，构成完整的「学习者—技能点—练习—评价」业务闭环：</p>
+<table>
+  <tr><th>实体</th><th>集合</th><th>职责</th><th>关键特征</th></tr>
+  <tr><td>技能点</td><td>skills</td><td>待掌握的能力单元</td><td>有难度、前置依赖，多规格异构</td></tr>
+  <tr><td>学习者</td><td>learners</td><td>参与学习的用户</td><td>等级、年限、标签画像</td></tr>
+  <tr><td>练习记录</td><td>practice_records</td><td>一次练习的完整过程</td><td>明细覆盖多个技能，状态流转</td></tr>
+  <tr><td>掌握度自评</td><td>assessments</td><td>对技能掌握程度的主观评分</td><td>1~5 分 + 反思文本</td></tr>
+</table>
+<p>业务数据呈现三个显著特征：其一，<b>结构异构</b>——不同领域的技能点规格不同（如编程类含「语言/框架/难度」，语言类含「语种/等级/场景」），与典型 NoSQL 场景高度契合；其二，<b>强时序性</b>——学习者对同一技能点会随时间反复练习，构成可建模的知识状态演化序列；其三，<b>幂律长尾</b>——少量热门技能被海量练习，大量冷门技能无人问津，是推荐与冷启动研究的典型分布。</p>
+
+<h2 id="section-3">1.2　选型分析</h2>
+<p>本项目选择 MongoDB 作为唯一数据存储，基于以下四点考量：</p>
+<p><b>（1）结构异构需要灵活 Schema。</b>技能点的规格字段随领域而异，关系型数据库需为每种技能建立宽表或 EAV 模型，维护成本高；MongoDB 的文档模型可让每个技能点携带符合自身领域规格的内嵌对象。</p>
+<p><b>（2）一次练习覆盖多技能需内嵌明细。</b>一次练习记录（practice_records）对应多个技能点明细（1~N 条），将明细内嵌为数组可让「按学习者取完整练习序列」只需一次查询，无需多表 JOIN。</p>
+<p><b>（3）读多写少、查询模式稳定。</b>学习推荐场景以「按学习者取序列」「按技能取练习」两类查询为主，写入相对低频，适合通过复合索引 + 哈希分片优化读路径。</p>
+<p><b>（4）天然适配 AI 训练数据抽取。</b>练习记录本身就是「学习者 × 技能点 × 反馈」三元组，是知识追踪与推荐模型的直接输入，无需二次重构即可产出训练样本。</p>
+
+<h2 id="section-4">1.3　系统架构设计</h2>
+<p>系统采用「业务库 + 训练库」双层架构，业务库承载在线学习服务，训练库承载离线 AI 训练数据，两者通过 ETL 层解耦：</p>
+<p><b>业务库（learning）：</b>skills、learners、practice_records、assessments 四集合，服务在线学习与查询。</p>
+<p><b>训练库（learning_ai）：</b>samples、features、graph_edges、runs 四集合，服务离线训练。</p>
+<p><b>ETL 层：</b>从业务库聚合交互对、负采样、构建技能依赖边、抽取特征，批量写入训练库。</p>
+<p><b>应用层：</b>PyMongo 服务层 + Flask 接口，命令行演示与接口共用同一套业务逻辑。</p>
+
+<h2 id="section-5">1.4　数据流设计</h2>
+<p><b>在线数据流：</b>学习者发起练习 → 写入 practice_records（含明细与状态）→ 完成后写入 assessments → 系统按技能依赖图推荐下一技能。</p>
+<p><b>离线数据流：</b>practice_records 聚合出「学习者 × 技能点」交互对生成正样本 → 从 learners 未掌握技能中随机负采样生成负样本 → assessments 的 rating 作为显式反馈、练习对错作为隐式反馈 → skills 的 prerequisites 构建 graph_edges → 画像与难度抽取为 features → 训练样本供知识追踪与路径推荐模型消费。</p>
+
+<h1 id="section-6">2　数据模型设计</h1>
+
+<h2 id="section-7">2.1　概念模型</h2>
+<p>系统核心关系可概括为：<b>学习者（learner）通过练习（practice）作用于技能点（skill），并产生评价（assessment）；技能点之间存在前置依赖（prerequisite）构成有向图。</b></p>
+<p>关系基数：</p>
+<table>
+  <tr><th>关系</th><th>基数</th></tr>
+  <tr><td>学习者 : 练习记录</td><td>1 : N</td></tr>
+  <tr><td>练习记录 : 技能点</td><td>1 : N（一次练习覆盖多个技能）</td></tr>
+  <tr><td>学习者 : 技能点</td><td>M : N（通过练习记录间接关联）</td></tr>
+  <tr><td>技能点 : 技能点</td><td>M : N（前置依赖）</td></tr>
+</table>
+
+<h2 id="section-8">2.2　集合结构总览</h2>
+<p>业务库 learning 四个集合，训练库 learning_ai 四个集合：</p>
+<table>
+  <tr><th>库</th><th>集合</th><th>说明</th><th>关键索引</th></tr>
+  <tr><td>learning</td><td>skills</td><td>技能点</td><td>category_path、difficulty</td></tr>
+  <tr><td>learning</td><td>learners</td><td>学习者</td><td>phone 唯一</td></tr>
+  <tr><td>learning</td><td>practice_records</td><td>练习记录</td><td>learner_id + finished_at</td></tr>
+  <tr><td>learning</td><td>assessments</td><td>掌握度自评</td><td>skill_id + created_at</td></tr>
+  <tr><td>learning_ai</td><td>samples</td><td>训练样本</td><td>learner_id + skill_id 唯一</td></tr>
+  <tr><td>learning_ai</td><td>features</td><td>特征与画像</td><td>entity_type + entity_id 唯一</td></tr>
+  <tr><td>learning_ai</td><td>graph_edges</td><td>技能依赖边</td><td>from_skill + to_skill 唯一</td></tr>
+  <tr><td>learning_ai</td><td>runs</td><td>实验与模型元数据</td><td>run_id + split</td></tr>
+</table>
+
+<h2 id="section-9">2.3　核心文档结构</h2>
+<p>技能点（skills）示例：</p>
+<pre>{
+  "_id": ObjectId(),
+  "code": "SK-PY-0001",
+  "title": "Python 列表与循环",
+  "domain": "编程",
+  "sub_domain": "Python",
+  "category_path": ["编程", "Python", "基础语法"],
+  "difficulty": 0.35,
+  "tags": ["入门", "语法", "必考"],
+  "specs": { "语言": "Python 3", "前置": "变量与类型", "预计时长": "2h" },
+  "prerequisites": [ObjectId("..."), ObjectId("...")],
+  "mastery_stats": { "avg": 3.8, "count": 1024 },
+  "status": "active",
+  "created_at": ISODate()
+}</pre>
+<p>练习记录（practice_records）示例：</p>
+<pre>{
+  "_id": ObjectId(),
+  "record_no": "PR20261112000001",
+  "learner_id": ObjectId(),
+  "skills": [
+    { "skill_id": ObjectId(), "correct": true, "difficulty": 0.35,
+      "attempt_no": 2, "domain": "编程", "sub_domain": "Python" }
+  ],
+  "score": 0.86,
+  "status": "completed",
+  "timeline": [ { "status": "started", "at": ISODate() },
+                { "status": "completed", "at": ISODate() } ],
+  "finished_at": ISODate()
+}</pre>
+<p>训练样本（samples）示例：</p>
+<pre>{
+  "_id": ObjectId(),
+  "learner_id": ObjectId(),
+  "skill_id": ObjectId(),
+  "label": 1,
+  "feedback_type": "practice",
+  "correct": true,
+  "mastery": 4.0,
+  "difficulty": 0.35,
+  "ctx": { "domain": "编程", "sub_domain": "Python", "attempt_no": 2 },
+  "created_at": ISODate()
+}</pre>
+
+<h2 id="section-10">2.4　内嵌与引用的取舍</h2>
+<p>本设计遵循与典型电商系统一致的取舍原则，但以「练习记录」为聚合根：</p>
+<p><b>内嵌：</b>练习记录的技能明细（skills 数组）内嵌于记录文档，使「按学习者取练习序列」一次查询即可获取全部交互，避免多次关联。</p>
+<p><b>引用：</b>技能点之间的前置依赖（prerequisites）以 ObjectId 数组引用，避免技能点文档因依赖关系而无限膨胀；学习者画像与练习记录分离，防止活跃学习者的高频练习拖垮其画像文档。</p>
+<p><b>训练库分离：</b>训练样本（samples）从业务库抽取后独立存储，避免在线库被离线训练频繁扫读，也便于按训练需求独立分片。</p>
+
+<h2 id="section-11">2.5　字段命名与类型规范</h2>
+<p>沿用工程化命名约定：字段统一蛇形小写；时间字段以 <code>_at</code> 结尾并使用 BSON Date 类型；引用字段以被引用集合单数名加 <code>_id</code> 结尾（learner_id、skill_id）；枚举字段（status、feedback_type、rel_type）在集合校验器中限定取值，越界写入被拦截；难度、评分等连续量用 <code>double</code> 存储，掌握度限定 0~5 闭区间。</p>
+
+<h2 id="section-12">2.6　索引与 TTL 规划</h2>
+<p>训练库索引规划（详见代码包 06_ai_training/create_collections.js）：</p>
+<table>
+  <tr><th>集合</th><th>索引</th><th>用途</th></tr>
+  <tr><td>samples</td><td>{ learner_id:1, skill_id:1 } 唯一</td><td>去重，保证同一交互仅一条样本</td></tr>
+  <tr><td>samples</td><td>{ learner_id:1, created_at:-1 }</td><td>按学习者取练习序列</td></tr>
+  <tr><td>samples</td><td>{ skill_id:1, created_at:-1 }</td><td>按技能取样本</td></tr>
+  <tr><td>samples</td><td>{ label:1, created_at:1 }</td><td>快速抽取正/负样本</td></tr>
+  <tr><td>features</td><td>{ entity_type:1, entity_id:1 } 唯一</td><td>定位实体特征</td></tr>
+  <tr><td>graph_edges</td><td>{ from_skill:1, to_skill:1 } 唯一</td><td>去重 + 图出边遍历</td></tr>
+  <tr><td>runs</td><td>{ run_id:1, split:1 }</td><td>实验查询</td></tr>
+</table>
+
+<h1 id="section-13">3　数据操作与业务功能实现</h1>
+
+<h2 id="section-14">3.1　环境部署</h2>
+<p>环境版本：MongoDB 7.0.14 副本集（rs0，端口 27017/27018/27019）；mongosh 2.2.6；Python 3.10.11，PyMongo 4.6.3，Flask 3.0.3。三个节点 host 统一写 <code>127.0.0.1</code>，避免混用 <code>localhost</code> 导致节点无法加入。</p>
+
+<h2 id="section-15">3.2　数据库与集合创建</h2>
+<p>业务库 learning 与训练库 learning_ai 的集合均通过 <code>createCollection</code> + <code>$jsonSchema</code> 校验器创建，<code>validationLevel</code> 设为 <code>moderate</code>、<code>validationAction</code> 设为 <code>warn</code>，在拦截明显越界写入的同时保留对存量数据的兼容。训练库建库脚本见 <code>06_ai_training/create_collections.js</code>，四个集合的校验器分别限定 label 枚举、feedback_type 枚举、mastery 区间等约束。</p>
+
+<h2 id="section-16">3.3　数据构造</h2>
+<p>造数脚本按领域模板生成异构技能点（编程类/语言类/设计类各携带不同规格字段），练习记录从技能池随机抽取 1~8 个技能构成明细，时间在一年区间内均匀分布，状态按真实业务比例分配，约 20% 练习集中在头部活跃学习者，为序列建模与冷启动研究提供样本。写入用无序批量分块写入，避免全部文档驻留内存。</p>
+
+<h2 id="section-17">3.4　文档增删改查</h2>
+<p>覆盖七类查询（条件、范围、逻辑、排序分页、正则、数组、嵌套文档）与插入、更新、删除操作，与参考答案电商系统的 CRUD 能力对齐。典型查询如：按 <code>category_path</code> 定位技能、按 <code>tags</code> 数组多条件匹配、按 <code>skills</code> 内嵌数组的 <code>$elemMatch</code> 查询练习明细、按学习者对练习记录做游标式分页。</p>
+
+<h2 id="section-18">3.5　聚合管道统计</h2>
+<p>训练数据抽取核心依赖聚合管道，典型三条：</p>
+<p><b>（1）交互对聚合：</b>对 practice_records 做 <code>$unwind skills</code>，聚合出「学习者 × 技能点」交互对，作为正样本来源。</p>
+<p><b>（2）技能热度统计：</b>按技能分组统计练习次数与平均掌握度，识别热门与冷门技能。</p>
+<p><b>（3）知识状态序列构造：</b>按学习者 + 时间排序，输出学习者的技能掌握演化序列，供知识追踪模型训练。</p>
+
+<h2 id="section-19">3.6　索引优化与 explain() 对比</h2>
+<p>以「按学习者取练习序列」为典型案例：无 <code>{ learner_id:1, created_at:-1 }</code> 索引时，查询需全集合扫描并在内存排序，数据量增大后排序内存超限直接不可用；建复合索引后，查询计划变为 IXSCAN 且 SORT 阶段消失，扫描文档数从全量降至命中区间，耗时从数百毫秒降至数毫秒，从「不可用」变为「可用」。</p>
+
+<h2 id="section-20">3.7　访问控制</h2>
+<p>数据库开启 authorization 后，用 localhost 例外机制创建系统管理员，再由管理员按最小权限创建业务账号：业务应用账号授予 learning / learning_ai 库的 readWrite，ETL 抽取账号授予 learning 的 read 与 learning_ai 的 readWrite，报表账号仅授予 read，管理员账号不用于业务连接。</p>
+
+<h1 id="section-21">4　业务应用实现</h1>
+
+<h2 id="section-22">4.1　业务功能闭环</h2>
+<p>完整业务闭环覆盖：学习者发起练习 → 系统记录练习明细与状态流转 → 完成后写入掌握度自评 → 基于技能依赖图推荐下一技能 → ETL 抽取训练样本 → 训练模型产出推荐结果。演示程序覆盖检索、练习、自评、路径推荐、样本抽取五个环节。</p>
+
+<h2 id="section-23">4.2　工程结构</h2>
+<pre>06_ai_training/
+├── create_collections.js   # 训练库建库、校验器与索引
+├── shard_config.js         # 分片集群配置
+├── etl_to_training.py      # ETL：正负样本抽取、建边、特征
+└── README.md               # 方案说明与执行顺序</pre>
+
+<h2 id="section-24">4.3　关键实现</h2>
+<p><b>样本抽取：</b>从 practice_records 聚合交互对生成正样本（label=1），从 learners 未掌握技能中随机负采样生成负样本（label=0），控制正负比（如 1:4）；assessments 的 rating 作为显式反馈（mastery 字段），练习对错作为隐式反馈（correct 字段）。</p>
+<p><b>依赖图构建：</b>遍历 skills 的 prerequisites 字段，生成 <code>{from_skill, to_skill, rel_type}</code> 依赖边，为路径推荐模型提供图约束。</p>
+<p><b>幂等抽取：</b>samples 以 <code>{learner_id, skill_id}</code> 唯一索引保证同一交互仅一条样本，ETL 用 upsert 实现可重复执行。</p>
+
+<h2 id="section-25">4.4　运行结果</h2>
+<p>执行 ETL 后，训练库生成四类数据：samples（正负样本）、features（技能难度与学习者画像）、graph_edges（技能依赖边）、runs（实验元数据）。以 demo 脚本执行一次完整闭环，覆盖「练习 → 自评 → 推荐 → 样本抽取」全流程，验证样本去重、依赖边构建与特征落库正确性。</p>
+
+<h1 id="section-26">5　结果分析</h1>
+
+<h2 id="section-27">5.1　功能完成情况</h2>
+<p>对照作业要求逐项自查：四实体建模、七类查询、聚合管道、索引 explain 对比、访问控制、ETL 抽取、训练库四集合划分、哈希分片均已完成，覆盖参考答案七章结构所要求的全部能力点。</p>
+
+<h2 id="section-28">5.2　性能分析</h2>
+<p>索引对读路径的性能提升是量级性的：无索引时「按学习者取练习序列」因排序内存超限不可用，建复合索引后数毫秒返回。写路径成本主要来自多数派确认，关键写入换取一致性是本设计的明确取舍。训练库以 learner_id 哈希分片，使「按学习者聚合序列」本地化，避免跨分片 join。</p>
+
+<h2 id="section-29">5.3　设计得失</h2>
+<p>本设计成立的关键有三点：其一，以练习记录为聚合根整体内嵌明细，使读路径只需一次查询；其二，将训练数据从业务库分离，避免离线训练干扰在线服务；其三，以技能依赖图（graph_edges）显式建模前置关系，为路径推荐提供图约束，这是区别于传统推荐系统的核心创新点。</p>
+<p>不足之处同样明确：其一，样本负采样依赖全量技能遍历，技能规模增大后需改为流式采样；其二，features 中的 embedding 向量维度受限，高维向量检索需引入向量索引或专用向量库；其三，技能依赖边依赖人工标注，图质量直接影响推荐效果，需建立依赖边置信度评估机制。</p>
+
+<h1 id="section-30">6　遇到的问题及解决办法</h1>
+<p>实施过程中遇到的问题可分为环境、语义与性能三类：</p>
+<p><b>（1）环境类：</b>副本集节点 host 混用 localhost 与 127.0.0.1 导致新节点无法加入，解决为统一写法。</p>
+<p><b>（2）语义类：</b>内嵌数组查询用路径式匹配与 <code>$elemMatch</code> 结果不同，路径式匹配允许不同元素分别满足条件，需按业务语义选用；负采样重复生成同一交互，靠 <code>{learner_id, skill_id}</code> 唯一索引 + upsert 幂等解决。</p>
+<p><b>（3）性能类：</b>练习序列查询无索引时排序内存超限，解决为建立 ESR 复合索引（等值字段在前、排序字段在后）。</p>
+
+<h1 id="section-31">7　提交物与复现说明</h1>
+
+<h2 id="section-32">7.1　提交物清单</h2>
+<table>
+  <tr><th>编号</th><th>提交物</th><th>说明</th></tr>
+  <tr><td>01</td><td>06_ai_training/create_collections.js</td><td>训练库建库、校验器、索引</td></tr>
+  <tr><td>02</td><td>06_ai_training/shard_config.js</td><td>分片集群配置</td></tr>
+  <tr><td>03</td><td>06_ai_training/etl_to_training.py</td><td>ETL 样本抽取</td></tr>
+  <tr><td>04</td><td>06_ai_training/README.md</td><td>方案说明与执行顺序</td></tr>
+  <tr><td>05</td><td>本报告</td><td>设计与实现说明</td></tr>
+</table>
+
+<h2 id="section-33">7.2　目录结构与执行顺序</h2>
+<p>执行顺序为：01 部署并初始化副本集 → 02 建集合与索引、建账号 → 03 造数并跑断言 → 04 执行查询、聚合与 explain → 05 运行 ETL 抽取训练样本 → 06 分片配置。</p>
+
+<h2 id="section-34">7.3　运行环境</h2>
+<table>
+  <tr><th>组件</th><th>版本</th></tr>
+  <tr><td>MongoDB</td><td>7.0.14（副本集 rs0，端口 27017/27018/27019）</td></tr>
+  <tr><td>mongosh</td><td>2.2.6</td></tr>
+  <tr><td>Python</td><td>3.10.11</td></tr>
+  <tr><td>PyMongo</td><td>4.6.3</td></tr>
+  <tr><td>Flask</td><td>3.0.3</td></tr>
+</table>
+
+<h2 id="section-35">7.4　复现注意事项</h2>
+<p>（1）三个节点 host 必须写法一致，混用 localhost 与 127.0.0.1 会导致新节点无法加入。</p>
+<p>（2）keyFile 权限必须为 400，权限过宽时 mongod 会拒绝启动。</p>
+<p>（3）造数建议先建索引再灌数据，可省去索引重建时间。</p>
+<p>（4）训练库 samples 的 <code>{learner_id, skill_id}</code> 唯一索引是负采样幂等的关键，删除后会重复生成样本。</p>
+<p>（5）本报告中的运行输出为示例文本，实际提交时应替换为本人环境的真实输出或截图。</p>
+
+</section>
+
+</body>
+</html>

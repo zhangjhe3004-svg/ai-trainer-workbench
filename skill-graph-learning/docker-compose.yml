@@ -1,0 +1,14 @@
+# 可选：使用 Docker 一键启动 MongoDB（无需本地安装）
+# 用法：docker compose up -d
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: skill-graph-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

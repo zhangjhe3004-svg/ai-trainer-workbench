@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>技能图谱学习推荐系统 · 管理后台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f6fa; color: #333; }
+  header { background: #1a3c6e; color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .8; margin-top: 4px; }
+  .tabs { display: flex; gap: 4px; background: #fff; padding: 0 24px; border-bottom: 1px solid #e0e0e0; }
+  .tab { padding: 14px 20px; cursor: pointer; font-size: 15px; color: #666; border-bottom: 2px solid transparent; }
+  .tab.active { color: #1a3c6e; border-bottom-color: #1a3c6e; font-weight: 600; }
+  .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+  .panel { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 16px; margin-bottom: 16px; color: #1a3c6e; }
+  .form-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; }
+  .form-item { display: flex; flex-direction: column; }
+  .form-item label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  input, select { padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; min-width: 120px; }
+  button { padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+  .btn-primary { background: #1a3c6e; color: #fff; }
+  .btn-primary:hover { background: #24508f; }
+  .btn-danger { background: #e24b4a; color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #f0f3f8; color: #555; font-weight: 600; }
+  tr:hover td { background: #fafbfd; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: #eef3fa; color: #1a3c6e; margin-right: 4px; }
+  .empty { text-align: center; color: #aaa; padding: 30px; }
+  .msg { padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; font-size: 14px; display: none; }
+  .msg.ok { display: block; background: #e8f5e9; color: #2e7d32; }
+  .msg.error { display: block; background: #fcebeb; color: #a32d2d; }
+  .rec-item { border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
+  .actions { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>技能图谱学习推荐系统 · 管理后台</h1>
+    <div class="sub">MongoDB CRUD · 技能点 / 学习者 / 练习记录</div>
+  </div>
+  <div style="font-size:13px;opacity:.85">数据存储：learning + learning_ai</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="skills">技能点</div>
+  <div class="tab" data-tab="learners">学习者</div>
+  <div class="tab" data-tab="records">练习记录</div>
+  <div class="tab" data-tab="recommend">路径推荐</div>
+</div>
+
+<div class="container">
+  <div id="msg" class="msg"></div>
+
+  <!-- 技能点 -->
+  <div id="tab-skills" class="tab-panel">
+    <div class="panel">
+      <h2>新增技能点</h2>
+      <div class="form-row">
+        <div class="form-item"><label>标题</label><input id="sk-title" placeholder="如：机器学习"></div>
+        <div class="form-item"><label>领域</label><input id="sk-domain" value="编程"></div>
+        <div class="form-item"><label>子领域</label><input id="sk-sub" value="Python"></div>
+        <div class="form-item"><label>难度(0~1)</label><input id="sk-diff" value="0.5" type="number" step="0.05"></div>
+        <div class="form-item"><label>前置技能(逗号分隔)</label><input id="sk-pre" placeholder="如：函数与模块"></div>
+        <button class="btn-primary" onclick="createSkill()">新增</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>技能点列表</h2>
+      <table id="skill-table">
+        <thead><tr><th>标题</th><th>领域</th><th>子领域</th><th>难度</th><th>前置</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 学习者 -->
+  <div id="tab-learners" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>新增学习者</h2>
+      <div class="form-row">
+        <div class="form-item"><label>昵称</label><input id="lr-name" placeholder="如：用户004"></div>
+        <div class="form-item"><label>等级</label>
+          <select id="lr-level"><option value="beginner">beginner</option><option value="silver">silver</option><option value="gold">gold</option></select>
+        </div>
+        <div class="form-item"><label>学习年限</label><input id="lr-years" value="0" type="number"></div>
+        <button class="btn-primary" onclick="createLearner()">新增</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>学习者列表</h2>
+      <table id="learner-table">
+        <thead><tr><th>昵称</th><th>等级</th><th>年限</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 练习记录 -->
+  <div id="tab-records" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>录入练习记录</h2>
+      <div class="form-row">
+        <div class="form-item"><label>学习者</label><select id="rc-learner"></select></div>
+        <div class="form-item"><label>技能编码(逗号分隔)</label><input id="rc-skills" placeholder="如：S001,S002"></div>
+        <div class="form-item"><label>对错(逗号分隔,1对0错)</label><input id="rc-flags" placeholder="如：1,0"></div>
+        <button class="btn-primary" onclick="createRecord()">录入</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>练习记录列表</h2>
+      <table id="record-table">
+        <thead><tr><th>记录号</th><th>学习者</th><th>技能数</th><th>得分</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 路径推荐 -->
+  <div id="tab-recommend" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>路径推荐</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择学习者</label><select id="rcm-learner"></select></div>
+        <button class="btn-primary" onclick="doRecommend()">生成推荐</button>
+      </div>
+      <div id="recommend-result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showMsg(text, type) {
+  const m = document.getElementById('msg');
+  m.textContent = text;
+  m.className = 'msg ' + (type || 'ok');
+  setTimeout(() => { m.className = 'msg'; }, 3000);
+}
+
+async function api(method, url, body) {
+  const opt = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(url, opt);
+  const j = await r.json();
+  if (j.code !== 0) throw new Error(j.msg || '操作失败');
+  return j.data;
+}
+
+// ---- 标签切换 ----
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.style.display = 'none');
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).style.display = 'block';
+    loadAll();
+  };
+});
+
+// ---- 技能点 ----
+async function loadSkills() {
+  const data = await api('GET', '/api/skills?size=200');
+  const tb = document.querySelector('#skill-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">暂无技能点，请先新增</td></tr>'; return; }
+  data.rows.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${s.title}</td><td>${s.domain||''}</td><td>${s.sub_domain||''}</td>
+      <td>${s.difficulty}</td><td>${(s.prerequisites||[]).join('、')||'-'}</td>
+      <td class="actions">
+        <button class="btn-danger btn-sm" onclick="delSkill('${s._id}')">删除</button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+async function createSkill() {
+  try {
+    await api('POST', '/api/skills', {
+      title: document.getElementById('sk-title').value,
+      domain: document.getElementById('sk-domain').value,
+      sub_domain: document.getElementById('sk-sub').value,
+      difficulty: parseFloat(document.getElementById('sk-diff').value) || 0.5,
+      prerequisites: document.getElementById('sk-pre').value.split(',').map(x=>x.trim()).filter(Boolean),
+    });
+    showMsg('技能点新增成功');
+    document.getElementById('sk-title').value = '';
+    document.getElementById('sk-pre').value = '';
+    loadSkills();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function delSkill(id) {
+  if (!confirm('确认删除该技能点？将级联清理其依赖边与特征。')) return;
+  try { await api('DELETE', '/api/skills/' + id); showMsg('删除成功'); loadSkills(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ---- 学习者 ----
+async function loadLearners() {
+  const data = await api('GET', '/api/learners?size=200');
+  const tb = document.querySelector('#learner-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">暂无学习者</td></tr>'; return; }
+  data.rows.forEach(l => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${l.nickname}</td><td>${l.level}</td><td>${l.years||0}</td>
+      <td class="actions"><button class="btn-danger btn-sm" onclick="delLearner('${l._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+  // 同步填充练习记录/推荐的下拉框
+  fillLearnerSelect('rc-learner', data.rows);
+  fillLearnerSelect('rcm-learner', data.rows);
+}
+function fillLearnerSelect(id, rows) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = rows.map(l => `<option value="${l._id}">${l.nickname}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+async function createLearner() {
+  try {
+    await api('POST', '/api/learners', {
+      nickname: document.getElementById('lr-name').value,
+      level: document.getElementById('lr-level').value,
+      years: parseInt(document.getElementById('lr-years').value) || 0,
+    });
+    showMsg('学习者新增成功');
+    document.getElementById('lr-name').value = '';
+    loadLearners();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function delLearner(id) {
+  if (!confirm('确认删除该学习者？将级联清理其练习、自评与训练样本。')) return;
+  try { await api('DELETE', '/api/learners/' + id); showMsg('删除成功'); loadLearners(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ---- 练习记录 ----
+async function loadRecords() {
+  const data = await api('GET', '/api/records?size=200');
+  const tb = document.querySelector('#record-table tbody');
+  tb.innerHTML = '';
+  if (!data.rows.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">暂无练习记录</td></tr>'; return; }
+  // 学习者 id -> 昵称映射
+  const ls = await api('GET', '/api/learners?size=200');
+  const nameMap = {}; ls.rows.forEach(l => nameMap[l._id] = l.nickname);
+  data.rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.record_no}</td><td>${nameMap[r.learner_id]||r.learner_id}</td>
+      <td>${r.skill_count}</td><td>${r.score!=null?r.score:'-'}</td><td>${r.status}</td>
+      <td class="actions"><button class="btn-danger btn-sm" onclick="delRecord('${r._id}')">删除</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function createRecord() {
+  try {
+    await api('POST', '/api/records', {
+      learner_id: document.getElementById('rc-learner').value,
+      skill_codes: document.getElementById('rc-skills').value.split(',').map(x=>x.trim()).filter(Boolean),
+      correct_flags: document.getElementById('rc-flags').value.split(',').map(x=>parseInt(x.trim())),
+    });
+    showMsg('练习记录录入成功');
+    document.getElementById('rc-skills').value = '';
+    document.getElementById('rc-flags').value = '';
+    loadRecords();
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+async function delRecord(id) {
+  if (!confirm('确认删除该练习记录？')) return;
+  try { await api('DELETE', '/api/records/' + id); showMsg('删除成功'); loadRecords(); }
+  catch(e) { showMsg(e.message, 'error'); }
+}
+
+// ---- 路径推荐 ----
+async function doRecommend() {
+  const lid = document.getElementById('rcm-learner').value;
+  if (!lid) { showMsg('请先选择学习者', 'error'); return; }
+  try {
+    const d = await api('GET', '/api/recommend/' + lid);
+    const box = document.getElementById('recommend-result');
+    box.innerHTML = `<div class="rec-item"><b>${d.learner}</b> 已掌握：${d.mastered.length?d.mastered.join('、'):'（无）'}</div>` +
+      `<div class="rec-item"><b>推荐下一步学习：</b><br>` +
+      (d.recommend.length ? d.recommend.map(r => `→ ${r.title}（难度 ${r.difficulty}）`).join('<br>') : '（无可推荐技能）') + `</div>`;
+  } catch(e) { showMsg(e.message, 'error'); }
+}
+
+function loadAll() {
+  loadSkills().catch(e=>showMsg(e.message,'error'));
+  loadLearners().catch(e=>showMsg(e.message,'error'));
+  loadRecords().catch(e=>showMsg(e.message,'error'));
+}
+
+loadAll();
+</script>
+</body>
+</html>

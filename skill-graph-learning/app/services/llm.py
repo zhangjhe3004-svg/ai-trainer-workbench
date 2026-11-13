@@ -257,6 +257,134 @@ def _hash_embed(text):
     return [x / norm for x in vec]
 
 
+# ============ 完整采样参数 / 结构化输出 / 成本估算 ============
+# 对应提示词工程中的 LLM Configuration：
+# Sampling Parameters（temperature / top_k / top_p）、
+# Output Control（max_tokens / stop）、
+# Repetition Penalties（frequency / presence penalty）。
+SAMPLING_DEFAULTS = {
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "top_k": 40,
+    "max_tokens": 1024,
+    "stop": [],
+    "frequency_penalty": 0.0,
+    "presence_penalty": 0.0,
+    "repetition_penalty": 1.0,
+    "seed": None,
+}
+
+# 每百万 token 的美元单价（可用环境变量覆盖，缺省按 gpt-4o-mini 近似）
+PRICE_IN = float(os.environ.get("LLM_PRICE_IN", "0.15"))
+PRICE_OUT = float(os.environ.get("LLM_PRICE_OUT", "0.6"))
+
+
+def estimate_tokens(text):
+    """轻量 token 估算：中文按 1 字 1 token，其余按 4 字符 1 token。"""
+    if not text:
+        return 0
+    cjk = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
+    return int(cjk + (len(text) - cjk) / 4) + 1
+
+
+def estimate_cost(prompt_tokens, completion_tokens):
+    """按配置单价估算单次调用成本（美元）。"""
+    return round((prompt_tokens * PRICE_IN + completion_tokens * PRICE_OUT) / 1_000_000, 6)
+
+
+def _offline_response(messages, json_schema=None):
+    """无 LLM 后端时的离线演示回答，明确标注为模拟，便于功能演示与单测。"""
+    last = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            last = m.get("content", "")
+            break
+    if isinstance(last, list):
+        last = " ".join(x.get("text", "") for x in last if isinstance(x, dict))
+    if json_schema:
+        props = (json_schema or {}).get("properties", {})
+        sample = {k: ("[离线示例]" + str(k)) for k in props}
+        return json.dumps(sample or {"result": "[离线演示输出]"}, ensure_ascii=False)
+    return ("[离线演示] 当前未配置 LLM 后端，此为提示词工程的模拟输出。"
+            "配置 LLM_API_KEY 或启动 Ollama 后将返回真实模型回答。\n"
+            "输入摘要：" + (last[:120] or "(空)"))
+
+
+def chat_full(messages, params=None, json_schema=None):
+    """完整采样参数的对话补全，支持结构化输出（JSON 约束）。
+
+    params 可覆盖 SAMPLING_DEFAULTS 中任意项；json_schema 传入时强制 JSON 输出。
+    返回 {"content", "backend", "model", "prompt_tokens", "completion_tokens",
+          "total_tokens", "cost_usd", "simulated"}。
+    无后端时返回离线演示结果（simulated=True），保证功能可离线演示。
+    """
+    p = dict(SAMPLING_DEFAULTS)
+    p.update({k: v for k, v in (params or {}).items() if v is not None})
+    msgs = [dict(m) for m in messages]
+    if json_schema:
+        schema_hint = json.dumps(json_schema, ensure_ascii=False)
+        msgs.insert(0, {"role": "system",
+                        "content": "你必须只输出合法 JSON，且字段严格遵循以下 JSON Schema：\n" + schema_hint})
+
+    b = backend()
+    if b == "openai":
+        payload = {
+            "model": LLM_MODEL,
+            "messages": msgs,
+            "temperature": p["temperature"],
+            "top_p": p["top_p"],
+            "max_tokens": p["max_tokens"],
+            "frequency_penalty": p["frequency_penalty"],
+            "presence_penalty": p["presence_penalty"],
+        }
+        if p.get("stop"):
+            payload["stop"] = p["stop"]
+        if p.get("seed") is not None:
+            payload["seed"] = p["seed"]
+        if json_schema:
+            payload["response_format"] = {"type": "json_object"}
+        headers = {"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"}
+        r = requests.post(f"{LLM_API_BASE}/chat/completions", json=payload,
+                          headers=headers, timeout=TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        content = data["choices"][0]["message"]["content"]
+        model, simulated = LLM_MODEL, False
+    elif b == "ollama":
+        options = {
+            "temperature": p["temperature"],
+            "top_p": p["top_p"],
+            "top_k": p["top_k"],
+            "num_predict": p["max_tokens"],
+            "repeat_penalty": p["repetition_penalty"],
+        }
+        if p.get("stop"):
+            options["stop"] = p["stop"]
+        if p.get("seed") is not None:
+            options["seed"] = p["seed"]
+        payload = {"model": OLLAMA_MODEL, "messages": msgs,
+                   "stream": False, "options": options}
+        if json_schema:
+            payload["format"] = "json"
+        r = requests.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload, timeout=TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        content = data.get("message", {}).get("content", "")
+        model, simulated = OLLAMA_MODEL, False
+    else:
+        content = _offline_response(msgs, json_schema)
+        model, simulated = "offline-demo", True
+
+    pt = estimate_tokens("".join(str(m.get("content", "")) for m in msgs))
+    ct = estimate_tokens(content)
+    return {
+        "content": content, "backend": b or "offline", "model": model,
+        "prompt_tokens": pt, "completion_tokens": ct,
+        "total_tokens": pt + ct, "cost_usd": estimate_cost(pt, ct),
+        "simulated": simulated,
+    }
+
+
 # ============ 相似度 ============
 def cosine(a, b):
     """余弦相似度。"""

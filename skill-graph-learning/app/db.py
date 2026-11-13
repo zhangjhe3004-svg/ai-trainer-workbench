@@ -40,6 +40,20 @@ vector_index = biz.vector_index
 # LLM 对话历史
 llm_conversations = biz.llm_conversations
 
+# ============ 工程能力（提示词 / 微调 / 评测 / 护栏 / 可观测） ============
+# 提示词模板：名称、系统提示、正文、变量、few-shot 示例、技巧、采样参数
+prompts = biz.prompts
+# 提示词版本：每次修改生成快照，支持回溯与 A/B 对比
+prompt_versions = biz.prompt_versions
+# 黄金评测集：输入 + 预期输出 + 关键词，用于回归测试
+evalsets = biz.evalsets
+# 评测运行：一次批量评测的结果汇总与逐条明细
+eval_runs = biz.eval_runs
+# 红队测试用例：提示注入 / PII / 敏感内容样本
+guardrail_tests = biz.guardrail_tests
+# 调用追踪：模型调用耗时、token 估算、成本、状态
+traces = biz.traces
+
 # ============ 训练库 trainer_ai ============
 ai = client["trainer_ai"]
 # 训练样本：从数据集抽取、供训练使用的正/负样本
@@ -94,6 +108,23 @@ def init_indexes():
 
     # 对话历史：按会话 + 时间
     llm_conversations.create_index([("conversation_id", 1), ("created_at", -1)], name="idx_conv_time")
+
+    # 提示词模板：名称唯一 + 技巧分类
+    prompts.create_index([("name", 1)], name="uniq_prompt_name", unique=True)
+    prompts.create_index([("technique", 1), ("created_at", -1)], name="idx_prompt_technique")
+    prompt_versions.create_index([("prompt_id", 1), ("version", 1)],
+                                 name="uniq_prompt_version", unique=True)
+
+    # 评测：评测集名称唯一，运行按评测集 + 时间
+    evalsets.create_index([("name", 1)], name="uniq_evalset_name", unique=True)
+    eval_runs.create_index([("evalset_id", 1), ("created_at", -1)], name="idx_evalrun_set_time")
+
+    # 护栏测试：按类别
+    guardrail_tests.create_index([("category", 1)], name="idx_guard_category")
+
+    # 可观测性：按时间 / 模型 / 状态
+    traces.create_index([("created_at", -1)], name="idx_trace_time")
+    traces.create_index([("model", 1), ("status", 1)], name="idx_trace_model_status")
 
     # 训练库
     samples.create_index([("model_id", 1), ("skill_id", 1)], name="uniq_model_skill", unique=True)

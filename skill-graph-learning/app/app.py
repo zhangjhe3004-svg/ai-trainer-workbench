@@ -9,6 +9,7 @@ from flask import Flask, jsonify, request, render_template
 from db import init_indexes
 from services import model, dataset, document, training
 from services import llm, vector, version, nlp
+from services import prompt as prompt_svc, finetune, evalset, guardrail, trace
 
 app = Flask(__name__)
 
@@ -656,6 +657,298 @@ def api_nlp_run():
         return err(str(e))
     except Exception as e:
         return err(str(e), 500)
+
+
+# ============ 工程能力：统一辅助 ============
+def _body():
+    return request.get_json(silent=True) or {}
+
+
+def _safe(fn, *args, **kwargs):
+    """统一执行服务函数并包装返回值 / 异常。"""
+    try:
+        return ok(fn(*args, **kwargs))
+    except ValueError as e:
+        return err(str(e))
+    except Exception as e:
+        return err(str(e), 500)
+
+
+# ============ 提示词工程 ============
+@app.get("/api/prompts/techniques")
+def api_pe_techniques():
+    return ok(prompt_svc.list_techniques())
+
+
+@app.post("/api/prompts/auto-generate")
+def api_pe_auto():
+    b = _body()
+    return _safe(prompt_svc.auto_generate, b.get("task", ""),
+                 b.get("n", 3), b.get("constraints", ""))
+
+
+@app.post("/api/prompts/compare")
+def api_pe_compare():
+    b = _body()
+    return _safe(prompt_svc.compare, b.get("pid_a"), b.get("pid_b"),
+                 b.get("variables"))
+
+
+@app.get("/api/prompts")
+def api_pe_list():
+    return _safe(prompt_svc.list_prompts, request.args.get("keyword"),
+                 request.args.get("technique"),
+                 int(request.args.get("page", 1)), int(request.args.get("size", 50)))
+
+
+@app.post("/api/prompts")
+def api_pe_create():
+    b = _body()
+    return _safe(prompt_svc.create_prompt,
+                 name=b.get("name"), content=b.get("content"),
+                 system_prompt=b.get("system_prompt", ""),
+                 technique=b.get("technique", "zero_shot"),
+                 description=b.get("description", ""),
+                 examples=b.get("examples"), sampling=b.get("sampling"),
+                 json_schema=b.get("json_schema"), tags=b.get("tags"),
+                 note=b.get("note", "创建模板"))
+
+
+@app.get("/api/prompts/<pid>")
+def api_pe_get(pid):
+    return _safe(prompt_svc.get_prompt, pid)
+
+
+@app.put("/api/prompts/<pid>")
+def api_pe_update(pid):
+    b = _body()
+    return _safe(prompt_svc.update_prompt, pid, b.get("fields", b), b.get("note", "更新模板"))
+
+
+@app.delete("/api/prompts/<pid>")
+def api_pe_delete(pid):
+    return _safe(prompt_svc.delete_prompt, pid)
+
+
+@app.get("/api/prompts/<pid>/versions")
+def api_pe_versions(pid):
+    return _safe(prompt_svc.list_versions, pid)
+
+
+@app.get("/api/prompt-versions/<vid>")
+def api_pe_version_detail(vid):
+    return _safe(prompt_svc.get_version, vid)
+
+
+@app.post("/api/prompts/<pid>/restore/<vid>")
+def api_pe_restore(pid, vid):
+    return _safe(prompt_svc.restore_version, pid, vid)
+
+
+@app.post("/api/prompts/<pid>/preview")
+def api_pe_preview(pid):
+    b = _body()
+    return _safe(prompt_svc.preview, pid, b.get("variables"), b.get("technique"))
+
+
+@app.post("/api/prompts/<pid>/run")
+def api_pe_run(pid):
+    b = _body()
+    return _safe(prompt_svc.run_prompt, pid, b.get("variables"),
+                 b.get("technique"), bool(b.get("guard", False)))
+
+
+# ============ 微调策略 ============
+@app.get("/api/finetune/methods")
+def api_ft_methods():
+    return ok(finetune.list_methods())
+
+
+@app.get("/api/finetune/methods/<key>")
+def api_ft_method(key):
+    return _safe(finetune.get_method, key)
+
+
+@app.post("/api/finetune/command-preview")
+def api_ft_cmd():
+    b = _body()
+    return _safe(finetune.command_preview, b.get("method", "sft"),
+                 b.get("model_name", "Qwen2.5-7B"),
+                 b.get("dataset_name", "my_dataset"),
+                 b.get("source_path", ""))
+
+
+@app.get("/api/finetune/runs")
+def api_ft_runs():
+    return _safe(finetune.list_finetune_runs, request.args.get("method"),
+                 int(request.args.get("limit", 50)))
+
+
+@app.post("/api/finetune/runs")
+def api_ft_create():
+    b = _body()
+    return _safe(finetune.create_finetune_run,
+                 b.get("name"), b.get("model_id"), b.get("dataset_id"),
+                 b.get("method", "sft"), b.get("overrides"),
+                 b.get("mode", "simulate"), b.get("description", ""))
+
+
+# ============ 评测中心 ============
+@app.get("/api/evalsets")
+def api_ev_sets():
+    return _safe(evalset.list_evalsets, request.args.get("keyword"),
+                 int(request.args.get("page", 1)), int(request.args.get("size", 50)))
+
+
+@app.post("/api/evalsets")
+def api_ev_create():
+    b = _body()
+    return _safe(evalset.create_evalset, b.get("name"),
+                 b.get("description", ""), b.get("cases"), b.get("tags"))
+
+
+@app.get("/api/evalsets/<eid>")
+def api_ev_get(eid):
+    return _safe(evalset.get_evalset, eid)
+
+
+@app.post("/api/evalsets/<eid>/cases")
+def api_ev_cases(eid):
+    return _safe(evalset.add_cases, eid, _body().get("cases", []))
+
+
+@app.post("/api/evalsets/<eid>/import-dataset")
+def api_ev_import(eid):
+    b = _body()
+    return _safe(evalset.import_from_dataset, eid, b.get("dataset_id"),
+                 b.get("limit", 100))
+
+
+@app.post("/api/evalsets/<eid>/run")
+def api_ev_run(eid):
+    b = _body()
+    return _safe(evalset.run_evaluation, eid,
+                 b.get("target_type", "sample"), b.get("target_id"),
+                 b.get("variables"), bool(b.get("judge", False)),
+                 b.get("name", ""), b.get("pass_threshold", 0.6))
+
+
+@app.delete("/api/evalsets/<eid>")
+def api_ev_delete(eid):
+    return _safe(evalset.delete_evalset, eid)
+
+
+@app.get("/api/evalruns")
+def api_ev_runs():
+    return _safe(evalset.list_runs, request.args.get("evalset_id"),
+                 int(request.args.get("limit", 50)))
+
+
+@app.post("/api/evalruns/compare")
+def api_ev_compare():
+    b = _body()
+    return _safe(evalset.compare_runs, b.get("rid_a"), b.get("rid_b"))
+
+
+@app.get("/api/evalruns/<rid>")
+def api_ev_run_detail(rid):
+    return _safe(evalset.get_run, rid)
+
+
+# ============ 安全护栏 ============
+@app.post("/api/guard/scan")
+def api_gd_scan():
+    b = _body()
+    return _safe(guardrail.scan, b.get("text", ""),
+                 bool(b.get("do_mask", True)), bool(b.get("block_injection", True)))
+
+
+@app.post("/api/guard/init")
+def api_gd_init():
+    return _safe(guardrail.init_cases, bool(_body().get("force", False)))
+
+
+@app.post("/api/guard/redteam")
+def api_gd_redteam():
+    return _safe(guardrail.run_redteam, _body().get("cases"))
+
+
+@app.get("/api/guard/cases")
+def api_gd_cases():
+    return _safe(guardrail.list_cases, request.args.get("category"))
+
+
+@app.post("/api/guard/cases")
+def api_gd_add():
+    b = _body()
+    return _safe(guardrail.add_case, b.get("category"), b.get("text"),
+                 b.get("expect", "block"))
+
+
+@app.delete("/api/guard/cases/<cid>")
+def api_gd_delete(cid):
+    return _safe(guardrail.delete_case, cid)
+
+
+# ============ 可观测性 ============
+@app.get("/api/traces/summary")
+def api_tr_summary():
+    return _safe(trace.summary, int(request.args.get("days", 7)))
+
+
+@app.get("/api/traces")
+def api_tr_list():
+    return _safe(trace.list_traces, request.args.get("kind"),
+                 request.args.get("status"), int(request.args.get("limit", 50)))
+
+
+@app.delete("/api/traces")
+def api_tr_clear():
+    return _safe(trace.clear)
+
+
+# ============ RAG 进阶 / 完整采样参数 ============
+@app.get("/api/vector/chunk-strategies")
+def api_vec_strategies():
+    return ok(vector.list_chunk_strategies())
+
+
+@app.post("/api/vector/chunk")
+def api_vec_chunk():
+    b = _body()
+    return _safe(vector.chunk_text, b.get("text", ""),
+                 b.get("strategy", "recursive"), b.get("size", 400),
+                 b.get("overlap", 50))
+
+
+@app.post("/api/vector/hybrid-search")
+def api_vec_hybrid():
+    b = _body()
+    return _safe(vector.hybrid_search, b.get("query", ""),
+                 b.get("limit", 5), b.get("alpha", 0.5),
+                 b.get("content_type"))
+
+
+@app.post("/api/vector/rewrite")
+def api_vec_rewrite():
+    b = _body()
+    return _safe(vector.rewrite_query, b.get("query", ""), b.get("n", 2))
+
+
+@app.post("/api/rag/advanced")
+def api_rag_advanced():
+    b = _body()
+    return _safe(vector.rag_chat_advanced, b.get("question", ""),
+                 b.get("top_k", 5), b.get("strategy", "hybrid"),
+                 bool(b.get("do_rewrite", False)),
+                 bool(b.get("do_rerank", True)), b.get("history"))
+
+
+@app.post("/api/llm/chat-full")
+def api_llm_chat_full():
+    b = _body()
+    return _safe(llm.chat_full, b.get("messages", []),
+                 b.get("params"), b.get("json_schema"))
 
 
 if __name__ == "__main__":

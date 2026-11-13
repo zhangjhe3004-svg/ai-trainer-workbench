@@ -9,6 +9,7 @@ AI 训练师通过本模块「用数据训练模型」：
 
 """
 import os
+import json
 import math
 import subprocess
 import threading
@@ -197,7 +198,8 @@ def _execute_real(run):
     """真实训练：调用本地训练框架（预留接口）。
 
     通过环境变量 TRAIN_CMD 指定训练命令（如 llama-factory / transformers 脚本），
-    命令中可用占位符：{model} {dataset} {params_json}。
+    命令中可用占位符：{model} {source_path} {dataset} {params_json}
+    {method} {method_params_json}（由微调策略写入）。
     若未配置 TRAIN_CMD，则报错提示。
     """
     cmd = os.environ.get("TRAIN_CMD", "")
@@ -215,7 +217,10 @@ def _execute_real(run):
     cmd = (cmd.replace("{model}", model_name)
               .replace("{source_path}", source_path)
               .replace("{dataset}", dataset_name)
-              .replace("{params_json}", params_json))
+              .replace("{params_json}", params_json)
+              .replace("{method}", run.get("finetune_method", "sft"))
+              .replace("{method_params_json}",
+                       json.dumps(run.get("method_config", {}), ensure_ascii=False)))
 
     rid = run["_id"]
     training_runs.update_one({"_id": rid}, {"$set": {"status": "running", "updated_at": _now()}})

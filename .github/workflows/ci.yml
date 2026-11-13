@@ -35,7 +35,7 @@ jobs:
           cd skill-graph-learning
           python -m compileall -q app data scripts
 
-      - name: 运行 NLP 单元测试
+      - name: 运行离线单元测试（NLP + 工程能力）
         run: |
           cd skill-graph-learning
-          pytest test_nlp.py -v
+          pytest -v

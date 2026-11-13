@@ -11,6 +11,10 @@
 - 本地回退：在本地 MongoDB 上读取向量后，用 Python 算余弦相似度（零额外依赖）。
 
 """
+import json
+import math
+import re
+from collections import Counter
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -367,3 +371,265 @@ def list_conversations(conversation_id, limit=50):
                                  {"_id": 0, "role": 1, "content": 1, "created_at": 1}) \
         .sort("created_at", 1).limit(limit)
     return list(cur)
+
+
+# ============ RAG 进阶：分块 / 混合检索 / 查询重写 / 重排 / 溯源 ============
+CHUNK_STRATEGIES = {
+    "fixed": {"name": "固定长度分块", "description": "按固定字符数切分，可设重叠，简单稳定。"},
+    "paragraph": {"name": "段落分块", "description": "按空行/换行切分，保留语义完整性。"},
+    "recursive": {"name": "递归字符分块", "description": "依次按段落、句子、字符递归切分，兼顾长度与语义。"},
+    "sentence": {"name": "句子分块", "description": "按中文句号/问号/感叹号切分。"},
+}
+
+
+def list_chunk_strategies():
+    return [dict(v, key=k) for k, v in CHUNK_STRATEGIES.items()]
+
+
+def chunk_text(text, strategy="recursive", size=400, overlap=50):
+    """把长文本切成知识片段，返回 [{"index", "text", "length"}]。"""
+    text = (text or "").strip()
+    if not text:
+        return []
+    if strategy not in CHUNK_STRATEGIES:
+        raise ValueError("不支持的分块策略：" + str(strategy))
+    size, overlap = max(50, int(size)), max(0, int(overlap))
+
+    if strategy == "paragraph":
+        units = [u.strip() for u in re.split(r"\n\s*\n|\n", text) if u.strip()]
+    elif strategy == "sentence":
+        units = [u.strip() for u in re.split(r"(?<=[。！？!?.;；])", text) if u.strip()]
+    elif strategy == "fixed":
+        step = max(1, size - overlap)
+        return [{"index": i, "text": text[s:s + size], "length": len(text[s:s + size])}
+                for i, s in enumerate(range(0, len(text), step))]
+    else:  # recursive：先段落，再句子，最后按长度兜底
+        paras = [u.strip() for u in re.split(r"\n\s*\n|\n", text) if u.strip()]
+        units = []
+        for p in paras:
+            if len(p) <= size:
+                units.append(p)
+            else:
+                sents = [x.strip() for x in re.split(r"(?<=[。！？!?.;；])", p) if x.strip()]
+                buf = ""
+                for s in sents:
+                    if len(buf) + len(s) <= size:
+                        buf += s
+                    else:
+                        if buf:
+                            units.append(buf)
+                        while len(s) > size:
+                            units.append(s[:size])
+                            s = s[size - overlap:]
+                        buf = s
+                if buf:
+                    units.append(buf)
+
+    merged, buf = [], ""
+    for u in units:
+        if len(buf) + len(u) <= size:
+            buf += u
+        else:
+            if buf:
+                merged.append(buf)
+            buf = u[-size:] if len(u) > size else u
+    if buf:
+        merged.append(buf)
+    return [{"index": i, "text": t, "length": len(t)} for i, t in enumerate(merged)]
+
+
+def _tokenize(text):
+    """轻量分词：中文单字 + 英文/数字词。"""
+    return re.findall(r"[\u4e00-\u9fff]|[a-z0-9]+", (text or "").lower())
+
+
+def bm25_scores(query, docs, k1=1.5, b=0.75):
+    """标准 BM25 打分（纯 Python，无额外依赖）。"""
+    if not docs:
+        return []
+    tokenized = [_tokenize(d) for d in docs]
+    q_terms = _tokenize(query)
+    avgdl = sum(len(t) for t in tokenized) / len(tokenized) or 1.0
+    n = len(docs)
+    out = []
+    for t in tokenized:
+        tf, dl, s = Counter(t), len(t), 0.0
+        for q in q_terms:
+            f = tf.get(q, 0)
+            if not f:
+                continue
+            df = sum(1 for x in tokenized if q in x)
+            idf = math.log(1 + (n - df + 0.5) / (df + 0.5))
+            s += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / avgdl))
+        out.append(round(s, 6))
+    return out
+
+
+def _all_vector_rows(content_type=None, source_type=None):
+    cond = {}
+    if content_type:
+        cond["content_type"] = content_type
+    if source_type:
+        cond["source_type"] = source_type
+    rows = []
+    for v in vector_index.find(cond, {"embedding": 1, "title": 1, "text": 1,
+                                      "content_type": 1, "image_b64": 1, "image_mime": 1,
+                                      "source_type": 1, "source_id": 1, "extra": 1}):
+        row = {
+            "source_type": v.get("source_type", ""),
+            "source_id": v.get("source_id", ""),
+            "content_type": v.get("content_type", "text"),
+            "title": v.get("title", ""),
+            "text": (v.get("text", "") or "")[:400],
+            "extra": v.get("extra", {}),
+            "embedding": v.get("embedding"),
+        }
+        if row["content_type"] == "image" and v.get("image_b64"):
+            row["image"] = f"data:{v.get('image_mime', 'image/jpeg')};base64,{v['image_b64']}"
+        rows.append(row)
+    return rows
+
+
+def hybrid_search(query, limit=5, alpha=0.5, content_type=None):
+    """混合检索：向量余弦 + BM25 关键词，用 RRF 倒数排名融合。
+
+    alpha: 向量通道权重（0~1）。返回按融合分数排序的结果，附带各通道分数。
+    """
+    rows = _all_vector_rows(content_type)
+    if not rows:
+        return []
+    qvec = llm.embed(query)["vectors"][0]
+    vec_scores = [llm.cosine(qvec, r["embedding"]) if r.get("embedding") else 0.0
+                  for r in rows]
+    kw_scores = bm25_scores(query, [r["title"] + " " + r["text"] for r in rows])
+
+    vec_order = sorted(range(len(rows)), key=lambda i: vec_scores[i], reverse=True)
+    kw_order = sorted(range(len(rows)), key=lambda i: kw_scores[i], reverse=True)
+    vec_rank = {idx: rk for rk, idx in enumerate(vec_order)}
+    kw_rank = {idx: rk for rk, idx in enumerate(kw_order)}
+
+    out = []
+    for i, r in enumerate(rows):
+        fused = alpha / (60 + vec_rank[i]) + (1 - alpha) / (60 + kw_rank[i])
+        item = {k: v for k, v in r.items() if k != "embedding"}
+        item["score"] = round(fused, 6)
+        item["vector_score"] = round(vec_scores[i], 4)
+        item["bm25_score"] = round(kw_scores[i], 4)
+        out.append(item)
+    out.sort(key=lambda x: x["score"], reverse=True)
+    return out[:int(limit)]
+
+
+def rewrite_query(question, n=2):
+    """查询重写：生成更利于检索的改写/扩展查询；无 LLM 时做规则扩展。"""
+    try:
+        res = llm.chat_full([
+            {"role": "system", "content": "你是检索查询改写助手。请给出 %d 个更利于知识检索的改写查询，只输出 JSON 数组字符串。" % n},
+            {"role": "user", "content": question},
+        ], params={"temperature": 0.3},
+            json_schema={"type": "array", "items": {"type": "string"}})
+        if res.get("simulated"):
+            raise RuntimeError("offline")
+        raw = res["content"].strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").split("\n", 1)[-1]
+        data = json.loads(raw)
+        variants = [str(x) for x in data if x][:n]
+        if variants:
+            return {"original": question, "variants": variants, "source": "llm"}
+    except Exception:
+        pass
+    return {
+        "original": question,
+        "variants": [question + " 原理 说明", question + " 如何 实现"][:n],
+        "source": "rule",
+    }
+
+
+def rerank(query, results, limit=5):
+    """重排序：把原检索分归一化后，与查询词覆盖率做加权融合（0.6 / 0.4）。"""
+    terms = set(_tokenize(query))
+    base = [max(0.0, float(r.get("score", 0.0))) for r in results]
+    hi = max(base) if base else 0.0
+    if hi <= 0:
+        hi = 1.0
+    out = []
+    for r, s in zip(results, base):
+        text = (r.get("title", "") + " " + r.get("text", ""))
+        toks = set(_tokenize(text))
+        cover = len(terms & toks) / len(terms) if terms else 0.0
+        item = dict(r)
+        item["rerank_score"] = round(0.6 * (s / hi) + 0.4 * cover, 6)
+        item["term_coverage"] = round(cover, 4)
+        out.append(item)
+    out.sort(key=lambda x: x["rerank_score"], reverse=True)
+    return out[:int(limit)]
+
+
+def rag_chat_advanced(question, top_k=5, strategy="hybrid", do_rewrite=False,
+                      do_rerank=True, history=None):
+    """进阶 RAG：查询重写 → 混合检索 → 重排序 → 带引用编号生成 → 答案溯源。"""
+    rewritten = rewrite_query(question) if do_rewrite else {
+        "original": question, "variants": [], "source": "off"}
+    probe = rewritten["variants"][0] if rewritten["variants"] else question
+    if strategy == "hybrid":
+        hits = hybrid_search(probe, limit=max(int(top_k) * 2, int(top_k)))
+    else:
+        hits = search_similar(probe, limit=max(int(top_k) * 2, int(top_k)))
+    if do_rerank:
+        hits = rerank(question, hits, limit=int(top_k))
+    else:
+        hits = hits[:int(top_k)]
+
+    parts = []
+    for i, s in enumerate(hits, 1):
+        tag = "[图片] " if s.get("content_type") == "image" else ""
+        parts.append("[%d] %s%s: %s" % (i, tag, s.get("title") or "未命名",
+                                        s.get("text") or "（无文字描述）"))
+    context = "\n\n".join(parts)
+    system = (
+        "你是基于知识库回答的助手。请严格依据【参考资料】作答，并在引用处标注编号如 [1]。"
+        "资料不足时如实说明，不要编造。\n\n【参考资料】\n" + (context or "（暂无相关资料）")
+    )
+    messages = [{"role": "system", "content": system}]
+    if history:
+        messages += history
+    messages.append({"role": "user", "content": question})
+    res = llm.chat_full(messages, params={"temperature": 0.2})
+
+    cited = set()
+    for m in re.findall(r"\[(\d+)\]", res["content"]):
+        try:
+            k = int(m)
+            if 1 <= k <= len(hits):
+                cited.add(k)
+        except ValueError:
+            pass
+    if not cited:
+        cited = set(range(1, min(3, len(hits)) + 1))
+    citations = [{
+        "index": i, "title": hits[i - 1].get("title", ""),
+        "content_type": hits[i - 1].get("content_type", "text"),
+        "snippet": (hits[i - 1].get("text") or "")[:160],
+        "score": hits[i - 1].get("score", 0),
+    } for i in sorted(cited)]
+
+    try:
+        from services import trace
+        trace.record("rag", model=res.get("model", ""),
+                     prompt_tokens=res.get("prompt_tokens", 0),
+                     completion_tokens=res.get("completion_tokens", 0),
+                     cost_usd=res.get("cost_usd", 0),
+                     status="ok", backend=res.get("backend", ""),
+                     note="strategy=%s" % strategy)
+    except Exception:
+        pass
+
+    return {
+        "answer": res["content"], "backend": res.get("backend"),
+        "model": res.get("model"), "simulated": res.get("simulated", False),
+        "sources": hits, "citations": citations,
+        "rewritten_query": rewritten, "strategy": strategy,
+        "tokens": res.get("total_tokens", 0), "cost_usd": res.get("cost_usd", 0),
+    }
+

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
 <title>AI 训练师工作台</title>
 <style>
   :root {
@@ -140,6 +141,38 @@
   #progress-log { border: 1px solid var(--line); border-radius: 10px; background: #fafbfd; }
   img { border-radius: 8px; }
 
+  /* 工程能力页：方法卡片 / 统计看板 / 代码块 */
+  .sidebar { overflow-y: auto; scrollbar-width: thin; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 12px; }
+  .method-card { border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+                 background: #fff; cursor: pointer; transition: all .15s; }
+  .method-card:hover { border-color: #b9d0ff; box-shadow: 0 4px 14px rgba(37,99,235,.09); transform: translateY(-1px); }
+  .method-card.active { border-color: var(--blue); background: var(--blue-50);
+                        box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  .method-card h3 { font-size: 13px; color: var(--navy); margin-bottom: 6px; font-weight: 650; }
+  .method-card p { font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+  .method-card .cat { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px;
+                      background: var(--blue-50); color: var(--blue); margin-bottom: 9px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat-card { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: #fafbfd; }
+  .stat-card .label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .stat-card .value { font-size: 23px; font-weight: 680; color: var(--navy); margin-top: 6px; letter-spacing: -.5px; }
+  .stat-card .unit { font-size: 11px; color: var(--muted); margin-left: 4px; font-weight: 500; }
+  .code-box { background: #0f2038; color: #cfe0ff; border-radius: 10px; padding: 14px 16px;
+              font-family: Consolas, Monaco, monospace; font-size: 11.5px; line-height: 1.7;
+              white-space: pre-wrap; word-break: break-all; }
+  .code-box.light { background: #f7f9fc; color: var(--ink); border: 1px solid var(--line); }
+  .result-box { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+                background: #fafbfd; font-size: 13px; line-height: 1.7;
+                white-space: pre-wrap; word-break: break-word; }
+  .kv { display: flex; gap: 10px; font-size: 12px; padding: 5px 0; }
+  .kv b { min-width: 92px; color: var(--muted); font-weight: 600; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill.ok { background: #e9f8f0; color: #1d7a55; }
+  .pill.warn { background: #fff3e2; color: #c47717; }
+  .pill.bad { background: #fdecec; color: #c23b40; }
+  .pill.info { background: var(--blue-50); color: var(--blue); }
+
   /* 窄屏：侧边栏折叠为图标栏 */
   @media (max-width: 980px) {
     .sidebar { width: 66px; padding: 20px 8px; }
@@ -164,6 +197,11 @@
   <symbol id="ico-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></symbol>
   <symbol id="ico-nlp" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/></symbol>
   <symbol id="ico-vector" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="7" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l7.7-.2M7.3 8l3.5 8M16.6 9.2L13.2 15.8"/></symbol>
+  <symbol id="ico-prompt" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9l3 3-3 3M13 15h4"/></symbol>
+  <symbol id="ico-finetune" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+  <symbol id="ico-eval" viewBox="0 0 24 24"><path d="M5 4h14v16l-7-4-7 4z"/><path d="M9 9h6M9 12h4"/></symbol>
+  <symbol id="ico-guard" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="ico-trace" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
 </svg>
 
 <aside class="sidebar">
@@ -188,6 +226,15 @@
     <div class="tab" data-tab="assistant"><svg class="nav-ico"><use href="#ico-chat"/></svg><span class="nav-txt">智能助手</span></div>
     <div class="tab" data-tab="nlp"><svg class="nav-ico"><use href="#ico-nlp"/></svg><span class="nav-txt">NLP 功能</span></div>
     <div class="tab" data-tab="vector"><svg class="nav-ico"><use href="#ico-vector"/></svg><span class="nav-txt">向量检索</span></div>
+  </div>
+
+  <div class="nav-label">ENGINEERING / 工程能力</div>
+  <div class="tabs" id="tabbar3">
+    <div class="tab" data-tab="prompts"><svg class="nav-ico"><use href="#ico-prompt"/></svg><span class="nav-txt">提示词工程</span></div>
+    <div class="tab" data-tab="finetune"><svg class="nav-ico"><use href="#ico-finetune"/></svg><span class="nav-txt">微调策略</span></div>
+    <div class="tab" data-tab="eval"><svg class="nav-ico"><use href="#ico-eval"/></svg><span class="nav-txt">评测中心</span></div>
+    <div class="tab" data-tab="guard"><svg class="nav-ico"><use href="#ico-guard"/></svg><span class="nav-txt">安全护栏</span></div>
+    <div class="tab" data-tab="trace"><svg class="nav-ico"><use href="#ico-trace"/></svg><span class="nav-txt">可观测性</span></div>
   </div>
 
   <div class="sidebar-foot">
@@ -538,6 +585,211 @@
         <button class="btn-primary" onclick="indexDocuments()">向量化所有知识文档</button>
       </div>
     </div>
+    <div class="panel">
+      <h2>分块策略与混合检索（BM25 + 向量 RRF）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>分块策略</label><select id="vx-strategy"></select></div>
+        <div class="form-item"><label>块大小</label><input id="vx-size" type="number" value="400" style="width:100px"></div>
+        <div class="form-item"><label>重叠字符</label><input id="vx-overlap" type="number" value="50" style="width:100px"></div>
+        <button class="btn-soft" onclick="doChunk()">切分预览</button>
+      </div>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="vx-query" style="min-width:340px;width:100%" placeholder="混合检索：输入查询，同时用向量与关键词召回"></div>
+        <button class="btn-primary" onclick="doHybridSearch()">混合检索</button>
+      </div>
+      <div id="vx-result"></div>
+    </div>
+    <div class="panel">
+      <h2>进阶 RAG（查询重写 / 重排序 / 答案溯源）</h2>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="vx-question" style="min-width:340px;width:100%" placeholder="输入问题，返回带引用编号与溯源信息的答案"></div>
+        <div class="form-item"><label>检索策略</label>
+          <select id="vx-rag-strategy"><option value="hybrid">混合检索</option><option value="vector">纯向量</option></select></div>
+        <button class="btn-primary" onclick="doAdvancedRag()">生成答案</button>
+      </div>
+      <div id="vx-rag-result"></div>
+    </div>
+  </div>
+
+  <!-- 提示词工程 -->
+  <div id="tab-prompts" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>提示词模板库</h2>
+      <table id="pe-table"><thead><tr><th>名称</th><th>技巧</th><th>版本</th><th>变量</th><th>说明</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>新建模板</h2>
+      <div class="form-row">
+        <div class="form-item"><label>模板名称</label><input id="pe-name" placeholder="如：客服回复生成"></div>
+        <div class="form-item"><label>提示技巧</label><select id="pe-technique"></select></div>
+        <div class="form-item"><label>温度</label><input id="pe-temp" type="number" step="0.1" value="0.7" style="width:90px"></div>
+        <div class="form-item"><label>最大输出 token</label><input id="pe-maxtok" type="number" value="1024" style="width:120px"></div>
+      </div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>系统提示 System Prompt</label>
+        <textarea id="pe-system" style="min-width:100%;width:100%" placeholder="设定角色、行为边界与输出规范"></textarea></div></div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>提示正文（变量用 &#123;&#123;变量名&#125;&#125; 占位）</label>
+        <textarea id="pe-content" style="min-width:100%;width:100%;min-height:96px" placeholder="请回答：&#123;&#123;question&#125;&#125;"></textarea></div></div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>Few-shot 示例（JSON 数组，可选）</label>
+        <textarea id="pe-examples" style="min-width:100%;width:100%" placeholder='[{"input":"怎么退款","output":"请提供订单号"}]'></textarea></div></div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>结构化输出 JSON Schema（可选）</label>
+        <input id="pe-schema" style="min-width:100%;width:100%" placeholder='{"type":"object","properties":{"result":{"type":"string"}}}'></div></div>
+      <button class="btn-primary" onclick="createPrompt()">保存模板</button>
+    </div>
+    <div class="panel">
+      <h2>试跑 / A-B 对比</h2>
+      <div class="form-row">
+        <div class="form-item"><label>模板 A</label><select id="pe-run-a"></select></div>
+        <div class="form-item"><label>模板 B（对比用）</label><select id="pe-run-b"></select></div>
+        <div class="form-item"><label>技巧覆盖</label><select id="pe-run-tech"><option value="">按模板默认</option></select></div>
+      </div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>变量 JSON</label>
+        <input id="pe-vars" style="min-width:100%;width:100%" value='{"question":"什么是 RAG"}'></div></div>
+      <div class="form-row">
+        <button class="btn-primary" onclick="runPrompt()">试跑模板 A</button>
+        <button class="btn-soft" onclick="comparePrompts()">A / B 对比</button>
+        <button class="btn-muted" onclick="previewPrompt()">仅渲染预览</button>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="pe-guard"> 启用安全护栏</label>
+      </div>
+      <div id="pe-run-result" style="margin-top:14px"></div>
+    </div>
+    <div class="panel">
+      <h2>自动提示词生成（APE）</h2>
+      <div class="form-row">
+        <div class="form-item" style="flex:1"><input id="pe-ape-task" style="min-width:100%;width:100%" placeholder="描述任务，如：把客服对话总结为结构化工单"></div>
+        <button class="btn-primary" onclick="autoGeneratePrompts()">生成候选</button>
+      </div>
+      <div id="pe-ape-result"></div>
+    </div>
+    <div class="panel">
+      <h2>版本历史与回滚</h2>
+      <div class="form-row">
+        <div class="form-item"><label>选择模板</label><select id="pe-ver-sel"></select></div>
+        <button class="btn-soft" onclick="loadPromptVersions()">查看版本</button>
+      </div>
+      <div id="pe-versions"></div>
+    </div>
+  </div>
+
+  <!-- 微调策略 -->
+  <div id="tab-finetune" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>微调方法库（点击卡片查看专属超参）</h2>
+      <div class="card-grid" id="ft-methods"></div>
+    </div>
+    <div class="panel">
+      <h2>方法超参与训练命令</h2>
+      <div id="ft-params" class="param-grid"></div>
+      <div class="form-row" style="margin-top:14px"><button class="btn-soft" onclick="previewFinetuneCommand()">生成训练命令</button></div>
+      <div id="ft-command"></div>
+    </div>
+    <div class="panel">
+      <h2>创建微调任务</h2>
+      <div class="form-row">
+        <div class="form-item"><label>任务名称</label><input id="ft-name" placeholder="如：客服领域 QLoRA 微调"></div>
+        <div class="form-item"><label>模型</label><select id="ft-model"></select></div>
+        <div class="form-item"><label>数据集</label><select id="ft-dataset"></select></div>
+        <div class="form-item"><label>方法</label><select id="ft-method"></select></div>
+      </div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>覆盖超参（JSON，可选）</label>
+        <input id="ft-overrides" style="min-width:100%;width:100%" placeholder='{"lora_r": 32, "epochs": 5}'></div></div>
+      <button class="btn-primary" onclick="createFinetuneRun()">创建任务（可到「训练运行」页执行）</button>
+    </div>
+    <div class="panel">
+      <h2>微调任务列表</h2>
+      <table id="ft-runs-table"><thead><tr><th>任务名称</th><th>方法</th><th>状态</th><th>进度</th><th>创建时间</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 评测中心 -->
+  <div id="tab-eval" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>黄金评测集</h2>
+      <div class="form-row">
+        <div class="form-item"><label>名称</label><input id="ev-name" placeholder="如：核心问答基线"></div>
+        <div class="form-item" style="flex:1"><label>用例 JSON 数组（input / expected / candidate）</label>
+          <input id="ev-cases" style="min-width:100%;width:100%" value='[{"input":"RAG 是什么","expected":"检索增强生成","candidate":"检索增强生成"}]'></div>
+        <button class="btn-primary" onclick="createEvalset()">创建</button>
+      </div>
+      <table id="ev-sets-table"><thead><tr><th>名称</th><th>用例数</th><th>说明</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>运行评测</h2>
+      <div class="form-row">
+        <div class="form-item"><label>评测集</label><select id="ev-run-set"></select></div>
+        <div class="form-item"><label>答案来源</label><select id="ev-target-type">
+          <option value="sample">评测集候选答案（离线演示）</option>
+          <option value="llm">直接调用 LLM</option>
+          <option value="prompt">提示词模板</option>
+          <option value="model">已发布模型版本</option>
+        </select></div>
+        <div class="form-item"><label>目标 ID</label><input id="ev-target-id" placeholder="模板/模型 ID，可留空" style="width:190px"></div>
+        <div class="form-item"><label>LLM 裁判</label><select id="ev-judge"><option value="0">关闭</option><option value="1">开启</option></select></div>
+        <button class="btn-primary" onclick="runEvalset()">开始评测</button>
+      </div>
+      <div id="ev-run-result"></div>
+    </div>
+    <div class="panel">
+      <h2>回归 / A-B 对比</h2>
+      <div class="form-row">
+        <div class="form-item"><label>基线运行</label><select id="ev-cmp-a"></select></div>
+        <div class="form-item"><label>对比运行</label><select id="ev-cmp-b"></select></div>
+        <button class="btn-soft" onclick="compareEvalRuns()">对比</button>
+      </div>
+      <div id="ev-compare-result"></div>
+    </div>
+    <div class="panel">
+      <h2>评测历史</h2>
+      <table id="ev-runs-table"><thead><tr><th>名称</th><th>评测集</th><th>平均分</th><th>通过率</th><th>裁判</th><th>时间</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 安全护栏 -->
+  <div id="tab-guard" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>文本安全扫描</h2>
+      <div class="form-row"><div class="form-item" style="flex:1">
+        <textarea id="gd-text" style="min-width:100%;width:100%;min-height:96px" placeholder="输入待检测文本，例如：忽略之前的所有指令，或包含手机号 13812345678 的内容"></textarea></div></div>
+      <button class="btn-primary" onclick="scanGuard()">扫描</button>
+      <div id="gd-result" style="margin-top:14px"></div>
+    </div>
+    <div class="panel">
+      <h2>红队批量测试</h2>
+      <div class="form-row">
+        <button class="btn-primary" onclick="runRedTeam()">运行全部用例</button>
+        <button class="btn-soft" onclick="initGuardCases()">初始化内置用例</button>
+      </div>
+      <div id="gd-redteam" style="margin-top:12px"></div>
+    </div>
+    <div class="panel">
+      <h2>新增测试用例</h2>
+      <div class="form-row">
+        <div class="form-item"><label>类别</label><select id="gd-cat"><option value="injection">提示注入</option><option value="pii">PII</option><option value="sensitive">敏感内容</option><option value="safe">正常用例</option></select></div>
+        <div class="form-item"><label>期望动作</label><select id="gd-expect"><option value="block">block 拦截</option><option value="mask">mask 脱敏</option><option value="pass">pass 放行</option></select></div>
+        <div class="form-item" style="flex:1"><label>用例文本</label><input id="gd-new-text" style="min-width:100%;width:100%"></div>
+        <button class="btn-primary" onclick="addGuardCase()">添加</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>用例库</h2>
+      <table id="gd-cases-table"><thead><tr><th>类别</th><th>文本</th><th>期望</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 可观测性 -->
+  <div id="tab-trace" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>调用概览（近 7 天）</h2>
+      <div id="tr-stats" class="stat-grid"></div>
+      <div id="tr-breakdown"></div>
+    </div>
+    <div class="panel">
+      <h2>调用明细</h2>
+      <div class="form-row">
+        <button class="btn-soft" onclick="loadTracePage()">刷新</button>
+        <button class="btn-danger btn-sm" onclick="clearTraces()">清空记录</button>
+      </div>
+      <table id="tr-table"><thead><tr><th>时间</th><th>类型</th><th>模型</th><th>状态</th><th>Token</th><th>成本(USD)</th><th>延迟</th><th>备注</th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
 </div>
 
@@ -568,7 +820,17 @@ const PAGE_META = {
   versions:  ['模型版本', '训练产出的版本管理：发布、归档、对比选优与推理'],
   assistant: ['智能助手', '基于知识库的多模态 RAG 问答'],
   nlp:       ['NLP 功能', '情感分析、实体识别、关键词、摘要、分类、翻译'],
-  vector:    ['向量检索', '相似度检索、多模态图文召回与自动归类'],
+  vector:    ['向量检索', '相似度检索、多模态图文召回、混合检索与答案溯源'],
+  prompts:   ['提示词工程', '模板与版本管理、12 种提示技巧、变量渲染、试跑与 A/B 对比'],
+  finetune:  ['微调策略', 'SFT / LoRA / QLoRA / DPO / RLHF 等 8 种方法与专属超参模板'],
+  eval:      ['评测中心', '黄金评测集、自动评分、LLM 裁判、回归与 A/B 对比'],
+  guard:     ['安全护栏', '提示注入检测、PII 脱敏、敏感词过滤与红队批量测试'],
+  trace:     ['可观测性', '调用追踪、成功率、token 消耗、成本与延迟看板'],
+};
+// 工程能力页按需懒加载，避免首屏发起过多请求
+const PAGE_LOADERS = {
+  prompts: loadPromptPage, finetune: loadFinetunePage, eval: loadEvalPage,
+  guard: loadGuardPage, trace: loadTracePage, vector: loadVectorExtras,
 };
 document.querySelectorAll('.tab').forEach(t => {
   t.onclick = () => {
@@ -582,7 +844,9 @@ document.querySelectorAll('.tab').forEach(t => {
       document.getElementById('page-sub').textContent = meta[1];
       document.getElementById('crumb-page').textContent = meta[0];
     }
-    loadAll();
+    const loader = PAGE_LOADERS[t.dataset.tab];
+    if (loader) loader().catch(e => showMsg(e.message, 'error'));
+    else loadAll();
   };
 });
 
@@ -1219,6 +1483,451 @@ async function indexDocuments() {
   catch(e) { showMsg(e.message, 'error'); }
 }
 
+// ============ 工程能力：公共辅助 ============
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function val(id) { return (document.getElementById(id).value || '').trim(); }
+function parseJson(id, fallback) {
+  try { const v = val(id); return v ? JSON.parse(v) : fallback; }
+  catch (e) { showMsg('JSON 格式有误，已忽略该字段', 'error'); return fallback; }
+}
+function setHtml(id, html) { document.getElementById(id).innerHTML = html; }
+function fmtDate(d) { return String(d || '').slice(0, 25) || '-'; }
+function pill(t, k) { return '<span class="pill ' + (k || 'info') + '">' + esc(t) + '</span>'; }
+function emptyRow(n, t) { return '<tr><td colspan="' + n + '" class="empty">' + esc(t) + '</td></tr>'; }
+function setSelect(id, opts, placeholder) {
+  const s = document.getElementById(id), cur = s.value;
+  s.innerHTML = (placeholder ? '<option value="">' + esc(placeholder) + '</option>' : '') +
+    (opts || '').toString();
+  if (cur) s.value = cur;
+}
+
+// ============ 提示词工程 ============
+let PE_ROWS = [], PE_TECHS = [];
+
+async function loadPromptPage() {
+  PE_TECHS = await api('GET', '/api/prompts/techniques');
+  const opts = PE_TECHS.map(t => '<option value="' + t.key + '">' + esc(t.name) + '</option>').join('');
+  setHtml('pe-technique', opts);
+  setHtml('pe-run-tech', '<option value="">按模板默认</option>' + opts);
+  await loadPrompts();
+}
+
+async function loadPrompts() {
+  const d = await api('GET', '/api/prompts?size=200');
+  PE_ROWS = d.rows;
+  document.querySelector('#pe-table tbody').innerHTML = d.rows.length
+    ? d.rows.map(p => '<tr><td><b>' + esc(p.name) + '</b></td><td><span class="tag">' +
+        esc(p.technique_label || p.technique) + '</span></td><td>v' + (p.version || 1) +
+        '</td><td>' + (p.variables || []).map(v => '<span class="tag">' + esc(v) + '</span>').join('') +
+        '</td><td class="txt-muted">' + esc(p.description || '-') + '</td><td><div class="actions">' +
+        '<button class="btn-soft btn-sm" onclick="selectPrompt(\'' + p._id + '\')">选用</button>' +
+        '<button class="btn-muted btn-sm" onclick="loadPromptVersions(\'' + p._id + '\')">版本</button>' +
+        '<button class="btn-danger btn-sm" onclick="deletePrompt(\'' + p._id + '\')">删除</button>' +
+        '</div></td></tr>').join('')
+    : emptyRow(6, '暂无模板，请在下方新建');
+  const opts = d.rows.map(p => '<option value="' + p._id + '">' + esc(p.name) + ' (v' + (p.version || 1) + ')</option>').join('');
+  ['pe-run-a', 'pe-run-b', 'pe-ver-sel'].forEach(id => setSelect(id, opts, opts ? '' : '请先创建模板'));
+  if (d.rows.length && !val('pe-run-a')) document.getElementById('pe-run-a').value = d.rows[0]._id;
+}
+
+function selectPrompt(pid) {
+  document.getElementById('pe-run-a').value = pid;
+  showMsg('已选用模板，可填写变量后试跑');
+}
+
+async function createPrompt() {
+  const examples = parseJson('pe-examples', []);
+  const body = {
+    name: val('pe-name'), content: val('pe-content'), system_prompt: val('pe-system'),
+    technique: val('pe-technique'),
+    examples: Array.isArray(examples) ? examples : [],
+    sampling: { temperature: parseFloat(val('pe-temp')) || 0.7,
+                max_tokens: parseInt(val('pe-maxtok')) || 1024 },
+    json_schema: parseJson('pe-schema', null),
+  };
+  try {
+    await api('POST', '/api/prompts', body);
+    showMsg('模板已创建，已写入 v1 版本快照');
+    await loadPrompts();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+function promptRunBody() {
+  return { variables: parseJson('pe-vars', {}),
+           technique: val('pe-run-tech') || undefined,
+           guard: document.getElementById('pe-guard').checked };
+}
+
+function renderRunResult(d) {
+  if (d.blocked) return '<div class="result-box"><b style="color:#c23b40">已被安全护栏拦截</b><br>' +
+    esc((d.guard.reasons || []).join('；')) + '</div>';
+  return '<div class="result-box"><div class="kv"><b>模板</b>' + esc(d.name) + ' · ' + esc(d.technique) + '</div>' +
+    '<div class="kv"><b>后端</b>' + esc(d.backend || d.model) + (d.simulated ? ' ' + pill('离线演示', 'warn') : '') + '</div>' +
+    '<div class="kv"><b>用量</b>' + d.tokens + ' tokens · ' + d.latency_ms + ' ms · $' + d.cost_usd + '</div>' +
+    '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">' +
+    esc(d.content) + '</div>';
+}
+
+async function runPrompt() {
+  const pid = val('pe-run-a');
+  if (!pid) return showMsg('请先选择模板', 'error');
+  try { setHtml('pe-run-result', renderRunResult(await api('POST', '/api/prompts/' + pid + '/run', promptRunBody()))); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function previewPrompt() {
+  const pid = val('pe-run-a');
+  if (!pid) return showMsg('请先选择模板', 'error');
+  try {
+    const d = await api('POST', '/api/prompts/' + pid + '/preview', {
+      variables: parseJson('pe-vars', {}), technique: val('pe-run-tech') || undefined });
+    setHtml('pe-run-result', '<div class="result-box">' + d.messages.map(m =>
+      '<div style="margin-bottom:10px"><b class="txt-blue">' + esc(m.role) + '</b><br>' + esc(m.content) + '</div>').join('') +
+      (d.missing.length ? '<div class="txt-muted">未填变量：' + esc(d.missing.join(', ')) + '</div>' : '') + '</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function comparePrompts() {
+  const a = val('pe-run-a'), b = val('pe-run-b');
+  if (!a || !b) return showMsg('请选择模板 A 与 B', 'error');
+  try {
+    const d = await api('POST', '/api/prompts/compare',
+      { pid_a: a, pid_b: b, variables: parseJson('pe-vars', {}) });
+    setHtml('pe-run-result', '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="label">推荐</div><div class="value">' + esc(d.recommend) + '</div></div>' +
+      '<div class="stat-card"><div class="label">长度差 (B-A)</div><div class="value">' + d.delta.length + '</div></div>' +
+      '<div class="stat-card"><div class="label">Token 差</div><div class="value">' + d.delta.tokens + '</div></div>' +
+      '<div class="stat-card"><div class="label">延迟差 (ms)</div><div class="value">' + d.delta.latency_ms + '</div></div>' +
+      '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      renderRunResult(d.a) + renderRunResult(d.b) + '</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function autoGeneratePrompts() {
+  try {
+    const d = await api('POST', '/api/prompts/auto-generate', { task: val('pe-ape-task'), n: 3 });
+    setHtml('pe-ape-result', '<div class="card-grid">' + d.candidates.map((c, i) =>
+      '<div class="method-card"><h3>' + esc(c.title) + '</h3><p>' + esc(c.content) + '</p>' +
+      '<div style="margin-top:10px"><button class="btn-soft btn-sm" onclick="saveGeneratedPrompt(' + i + ')">保存为模板</button></div></div>').join('') +
+      '</div><div class="txt-muted" style="margin-top:10px;font-size:12px">' + esc(d.note) + '</div>');
+    window._APE_CANDIDATES = d.candidates;
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function saveGeneratedPrompt(i) {
+  const c = (window._APE_CANDIDATES || [])[i];
+  if (!c) return;
+  try {
+    await api('POST', '/api/prompts', { name: c.title + '-' + Date.now().toString().slice(-5),
+      content: c.content, technique: 'zero_shot' });
+    showMsg('候选已保存为模板'); await loadPrompts();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function loadPromptVersions(pid) {
+  const id = pid || val('pe-ver-sel');
+  if (!id) return showMsg('请先选择模板', 'error');
+  if (pid) document.getElementById('pe-ver-sel').value = pid;
+  try {
+    const rows = await api('GET', '/api/prompts/' + id + '/versions');
+    setHtml('pe-versions', rows.length ? rows.map(v =>
+      '<div class="rec-item"><div class="kv"><b>版本</b>v' + v.version + ' · ' + esc(v.note) + ' · ' + fmtDate(v.created_at) + '</div>' +
+      '<div class="kv"><b>正文</b>' + esc((v.snapshot.content || '').slice(0, 160)) + '</div>' +
+      '<button class="btn-warn btn-sm" onclick="restorePromptVersion(\'' + id + '\',\'' + v._id + '\')">回滚到此版本</button></div>').join('')
+      : '<div class="empty">暂无版本记录</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function restorePromptVersion(pid, vid) {
+  try { await api('POST', '/api/prompts/' + pid + '/restore/' + vid, {});
+    showMsg('已回滚并生成新版本'); await loadPrompts(); await loadPromptVersions(pid); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function deletePrompt(pid) {
+  if (!confirm('确认删除该模板及其所有版本？')) return;
+  try { await api('DELETE', '/api/prompts/' + pid); showMsg('已删除'); await loadPrompts(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 微调策略 ============
+let FT_METHODS = [], FT_SELECTED = 'sft';
+
+async function loadFinetunePage() {
+  const [methods, models, datasets] = await Promise.all([
+    api('GET', '/api/finetune/methods'),
+    api('GET', '/api/models?size=200'), api('GET', '/api/datasets?size=200')]);
+  FT_METHODS = methods;
+  setHtml('ft-methods', methods.map(m =>
+    '<div class="method-card' + (m.key === FT_SELECTED ? ' active' : '') + '" id="ft-card-' + m.key +
+    '" onclick="selectFinetuneMethod(\'' + m.key + '\')"><span class="cat">' + esc(m.category) + '</span>' +
+    '<h3>' + esc(m.name) + '</h3><p>' + esc(m.description) + '</p>' +
+    '<p style="margin-top:8px;color:var(--blue)">训练范围：' + esc(m.trainable) + '</p></div>').join(''));
+  setSelect('ft-method', methods.map(m => '<option value="' + m.key + '">' + esc(m.name) + '</option>').join(''));
+  setSelect('ft-model', (models.rows || []).map(m => '<option value="' + m._id + '">' + esc(m.name) + '</option>').join(''));
+  setSelect('ft-dataset', (datasets.rows || []).map(d => '<option value="' + d._id + '">' + esc(d.name) + '</option>').join(''));
+  renderFtParams(FT_SELECTED);
+  await loadFinetuneRuns();
+}
+
+function selectFinetuneMethod(key) {
+  FT_SELECTED = key;
+  document.querySelectorAll('#ft-methods .method-card').forEach(c => c.classList.remove('active'));
+  const card = document.getElementById('ft-card-' + key);
+  if (card) card.classList.add('active');
+  document.getElementById('ft-method').value = key;
+  renderFtParams(key);
+}
+
+function renderFtParams(key) {
+  const m = FT_METHODS.find(x => x.key === key);
+  if (!m) return;
+  setHtml('ft-params', Object.entries(m.params).map(([k, v]) =>
+    '<div class="param-item"><label>' + esc(k) + '</label><input data-key="' + esc(k) + '" value="' +
+    esc(Array.isArray(v) ? v.join(',') : v) + '"></div>').join(''));
+}
+
+function collectFtOverrides() {
+  const o = {};
+  document.querySelectorAll('#ft-params .param-item input').forEach(i => {
+    const k = i.dataset.key, v = i.value.trim();
+    if (v === '') return;
+    if (k === 'target_modules') o[k] = v.split(',').map(s => s.trim()).filter(Boolean);
+    else if (/^-?\d+(\.\d+)?$/.test(v)) o[k] = Number(v);
+    else if (v === 'true' || v === 'false') o[k] = v === 'true';
+    else o[k] = v;
+  });
+  Object.assign(o, parseJson('ft-overrides', {}) || {});
+  return o;
+}
+
+async function previewFinetuneCommand() {
+  try {
+    const d = await api('POST', '/api/finetune/command-preview', { method: val('ft-method') || FT_SELECTED });
+    setHtml('ft-command', '<div class="code-box">' + esc(d.command) + '</div>' +
+      '<div class="txt-muted" style="font-size:12px;margin-top:8px">占位符：' + esc(d.placeholders.join('  ')) + '</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function createFinetuneRun() {
+  if (!val('ft-name') || !val('ft-model') || !val('ft-dataset'))
+    return showMsg('请填写任务名称并选择模型、数据集', 'error');
+  try {
+    await api('POST', '/api/finetune/runs', { name: val('ft-name'), model_id: val('ft-model'),
+      dataset_id: val('ft-dataset'), method: val('ft-method'), overrides: collectFtOverrides(),
+      mode: 'simulate' });
+    showMsg('微调任务已创建，可到「训练运行」页执行或异步训练');
+    await loadFinetuneRuns();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function loadFinetuneRuns() {
+  const rows = await api('GET', '/api/finetune/runs');
+  document.querySelector('#ft-runs-table tbody').innerHTML = rows.length ? rows.map(r =>
+    '<tr><td>' + esc(r.name) + '</td><td><span class="tag">' + esc(r.method_label || r.finetune_method) +
+    '</span></td><td>' + pill(r.status, r.status === 'completed' ? 'ok' : (r.status === 'failed' ? 'bad' : 'info')) +
+    '</td><td>' + Math.round((r.progress || 0) * 100) + '%</td><td>' + fmtDate(r.created_at) + '</td></tr>').join('')
+    : emptyRow(5, '暂无微调任务，请在上方创建');
+}
+
+// ============ 评测中心 ============
+async function loadEvalPage() { await Promise.all([loadEvalsets(), loadEvalRuns()]); }
+
+async function loadEvalsets() {
+  const d = await api('GET', '/api/evalsets?size=200');
+  document.querySelector('#ev-sets-table tbody').innerHTML = d.rows.length ? d.rows.map(s =>
+    '<tr><td><b>' + esc(s.name) + '</b></td><td>' + s.case_count + '</td><td class="txt-muted">' + esc(s.description || '-') +
+    '</td><td><button class="btn-danger btn-sm" onclick="deleteEvalset(\'' + s._id + '\')">删除</button></td></tr>').join('')
+    : emptyRow(4, '暂无评测集');
+  setSelect('ev-run-set', d.rows.map(s => '<option value="' + s._id + '">' + esc(s.name) + '</option>').join(''),
+    d.rows.length ? '' : '请先创建评测集');
+}
+
+async function loadEvalRuns() {
+  const rows = await api('GET', '/api/evalruns?limit=100');
+  document.querySelector('#ev-runs-table tbody').innerHTML = rows.length ? rows.map(r =>
+    '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.evalset_name) + '</td><td><b>' + r.summary.avg_score +
+    '</b></td><td>' + Math.round(r.summary.pass_rate * 100) + '%</td><td>' +
+    (r.judge_enabled ? pill('LLM 裁判', 'info') : pill('规则', 'ok')) + '</td><td>' + fmtDate(r.created_at) + '</td></tr>').join('')
+    : emptyRow(6, '暂无评测运行');
+  const opts = rows.map(r => '<option value="' + r._id + '">' + esc(r.name) + ' (' + r.summary.avg_score + ')</option>').join('');
+  ['ev-cmp-a', 'ev-cmp-b'].forEach(id => setSelect(id, opts, opts ? '' : '请先运行评测'));
+}
+
+async function createEvalset() {
+  const cases = parseJson('ev-cases', []);
+  if (!Array.isArray(cases) || !cases.length) return showMsg('请填写有效的用例 JSON 数组', 'error');
+  try { await api('POST', '/api/evalsets', { name: val('ev-name'), cases });
+    showMsg('评测集已创建'); await loadEvalsets(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function deleteEvalset(eid) {
+  if (!confirm('确认删除该评测集及其运行记录？')) return;
+  try { await api('DELETE', '/api/evalsets/' + eid); showMsg('已删除'); await loadEvalPage(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function runEvalset() {
+  const eid = val('ev-run-set');
+  if (!eid) return showMsg('请先选择评测集', 'error');
+  try {
+    const d = await api('POST', '/api/evalsets/' + eid + '/run', {
+      name: '', target_type: val('ev-target-type'), target_id: val('ev-target-id') || null,
+      judge: val('ev-judge') === '1' });
+    setHtml('ev-run-result', '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="label">平均分</div><div class="value">' + d.avg_score + '</div></div>' +
+      '<div class="stat-card"><div class="label">通过率</div><div class="value">' + Math.round(d.pass_rate * 100) + '<span class="unit">%</span></div></div>' +
+      '<div class="stat-card"><div class="label">用例数</div><div class="value">' + d.total + '</div></div>' +
+      (d.judge_avg != null ? '<div class="stat-card"><div class="label">裁判均分</div><div class="value">' + d.judge_avg + '</div></div>' : '') +
+      '</div><table><thead><tr><th>#</th><th>输入</th><th>实际输出</th><th>得分</th></tr></thead><tbody>' +
+      d.results.map(r => '<tr><td>' + (r.index + 1) + '</td><td>' + esc(r.input) + '</td><td>' + esc(r.actual) +
+        '</td><td>' + pill(r.score, r.score >= 0.6 ? 'ok' : 'bad') + '</td></tr>').join('') + '</tbody></table>');
+    await loadEvalRuns();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function compareEvalRuns() {
+  const a = val('ev-cmp-a'), b = val('ev-cmp-b');
+  if (!a || !b) return showMsg('请选择两次评测运行', 'error');
+  try {
+    const d = await api('POST', '/api/evalruns/compare', { rid_a: a, rid_b: b });
+    setHtml('ev-compare-result', '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="label">判定</div><div class="value" style="font-size:18px">' + esc(d.verdict) + '</div></div>' +
+      '<div class="stat-card"><div class="label">平均分变化</div><div class="value">' + d.avg_score_delta + '</div></div>' +
+      '<div class="stat-card"><div class="label">通过率变化</div><div class="value">' + Math.round(d.pass_rate_delta * 100) + '<span class="unit">%</span></div></div>' +
+      '<div class="stat-card"><div class="label">退化用例</div><div class="value">' + d.regressed.length + '</div></div>' +
+      '</div>' + (d.regressed.length ? '<div class="result-box"><b>退化明细</b><br>' + d.regressed.map(x =>
+        '#' + (x.index + 1) + ' ' + esc(x.input) + ' ：' + x.before + ' → ' + x.after + ' (' + x.delta + ')').join('<br>') + '</div>' : ''));
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 安全护栏 ============
+async function loadGuardPage() { await loadGuardCases(); }
+
+async function scanGuard() {
+  try {
+    const d = await api('POST', '/api/guard/scan', { text: val('gd-text') });
+    const kind = d.action === 'block' ? 'bad' : (d.action === 'mask' ? 'warn' : 'ok');
+    setHtml('gd-result', '<div class="result-box">' +
+      '<div class="kv"><b>处理动作</b>' + pill(d.action, kind) + ' · 注入风险分 ' + d.injection.score + ' ' + pill(d.injection.level, d.injection.level === 'high' ? 'bad' : 'info') + '</div>' +
+      '<div class="kv"><b>PII</b>' + (d.pii.found ? esc(d.pii.items.map(x => x.type + '×' + x.count).join('、')) : '未发现') + '</div>' +
+      '<div class="kv"><b>敏感词</b>' + (d.sensitive.found ? esc(d.sensitive.words.join('、')) : '未命中') + '</div>' +
+      '<div class="kv"><b>原因</b>' + esc(d.reasons.join('；') || '无风险') + '</div>' +
+      '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0"><b>清洗后文本</b><br>' + esc(d.clean_text) + '</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function runRedTeam() {
+  try {
+    const d = await api('POST', '/api/guard/redteam', {});
+    setHtml('gd-redteam', '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="label">通过率</div><div class="value">' + Math.round(d.pass_rate * 100) + '<span class="unit">%</span></div></div>' +
+      '<div class="stat-card"><div class="label">通过 / 总数</div><div class="value">' + d.passed + '<span class="unit">/ ' + d.total + '</span></div></div>' +
+      '</div><table><thead><tr><th>类别</th><th>文本</th><th>期望</th><th>实际</th><th>结果</th></tr></thead><tbody>' +
+      d.details.map(x => '<tr><td>' + esc(x.category) + '</td><td>' + esc(x.text) + '</td><td>' + esc(x.expect) +
+        '</td><td>' + esc(x.actual) + '</td><td>' + pill(x.passed ? '通过' : '未通过', x.passed ? 'ok' : 'bad') + '</td></tr>').join('') +
+      '</tbody></table>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function initGuardCases() {
+  try { const d = await api('POST', '/api/guard/init', {});
+    showMsg('内置用例已就绪，共 ' + d.total + ' 条'); await loadGuardCases(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function addGuardCase() {
+  try { await api('POST', '/api/guard/cases', { category: val('gd-cat'), text: val('gd-new-text'), expect: val('gd-expect') });
+    showMsg('用例已添加'); await loadGuardCases(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function deleteGuardCase(cid) {
+  try { await api('DELETE', '/api/guard/cases/' + cid); showMsg('已删除'); await loadGuardCases(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function loadGuardCases() {
+  const rows = await api('GET', '/api/guard/cases');
+  document.querySelector('#gd-cases-table tbody').innerHTML = rows.length ? rows.map(c =>
+    '<tr><td>' + pill(c.category, c.category === 'safe' ? 'ok' : 'warn') + '</td><td>' + esc(c.text) +
+    '</td><td>' + esc(c.expect) + '</td><td><button class="btn-danger btn-sm" onclick="deleteGuardCase(\'' +
+    c._id + '\')">删除</button></td></tr>').join('')
+    : emptyRow(4, '暂无用例，点击「初始化内置用例」');
+}
+
+// ============ 可观测性 ============
+async function loadTracePage() {
+  const [s, rows] = await Promise.all([
+    api('GET', '/api/traces/summary?days=7'), api('GET', '/api/traces?limit=100')]);
+  setHtml('tr-stats', [
+    ['总调用', s.calls, ''], ['成功率', Math.round(s.success_rate * 100), '%'],
+    ['Token 消耗', s.total_tokens, ''], ['成本', '$' + s.cost_usd, ''],
+    ['平均延迟', s.avg_latency_ms, 'ms'], ['错误数', s.errors, ''],
+  ].map(x => '<div class="stat-card"><div class="label">' + x[0] + '</div><div class="value">' + x[1] +
+    (x[2] ? '<span class="unit">' + x[2] + '</span>' : '') + '</div></div>').join(''));
+  setHtml('tr-breakdown', '<div class="kv"><b>按类型</b>' + Object.entries(s.by_kind).map(([k, v]) =>
+    '<span class="tag">' + esc(k) + ' ' + v.calls + ' 次 / ' + v.tokens + ' tok</span>').join('') + '</div>' +
+    '<div class="kv"><b>按模型</b>' + Object.entries(s.by_model).map(([k, v]) =>
+    '<span class="tag">' + esc(k) + ' ×' + v + '</span>').join('') + '</div>');
+  document.querySelector('#tr-table tbody').innerHTML = rows.length ? rows.map(t =>
+    '<tr><td>' + fmtDate(t.created_at) + '</td><td>' + pill(t.kind, 'info') + '</td><td>' + esc(t.model) +
+    '</td><td>' + pill(t.status, t.status === 'ok' ? 'ok' : 'bad') + '</td><td>' + t.total_tokens +
+    '</td><td>' + t.cost_usd + '</td><td>' + t.latency_ms + ' ms</td><td class="txt-muted">' +
+    esc(t.note || t.error || '-') + '</td></tr>').join('')
+    : emptyRow(8, '暂无调用记录，试跑模板或运行评测后即可看到追踪数据');
+}
+
+async function clearTraces() {
+  if (!confirm('确认清空所有调用追踪记录？')) return;
+  try { await api('DELETE', '/api/traces'); showMsg('已清空'); await loadTracePage(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 向量检索增强 ============
+async function loadVectorExtras() {
+  const s = await api('GET', '/api/vector/chunk-strategies');
+  setHtml('vx-strategy', s.map(x => '<option value="' + x.key + '">' + esc(x.name) + '</option>').join(''));
+}
+
+async function doChunk() {
+  try {
+    const d = await api('POST', '/api/vector/chunk', { text: val('vx-query') || '向量检索通过Embedding把文本映射为向量。混合检索结合BM25关键词与向量相似度，用RRF融合排序。',
+      strategy: val('vx-strategy'), size: parseInt(val('vx-size')) || 400,
+      overlap: parseInt(val('vx-overlap')) || 50 });
+    setHtml('vx-result', '<div class="result-box"><b>切分为 ' + d.length + ' 个片段</b><br>' +
+      d.map(c => '[' + c.index + '] (' + c.length + '字) ' + esc(c.text.slice(0, 100))).join('<br>') + '</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function doHybridSearch() {
+  try {
+    const d = await api('POST', '/api/vector/hybrid-search', { query: val('vx-query'), limit: 8, alpha: 0.5 });
+    setHtml('vx-result', d.length ? '<table><thead><tr><th>标题</th><th>融合分</th><th>向量分</th><th>BM25</th><th>内容</th></tr></thead><tbody>' +
+      d.map(r => '<tr><td>' + esc(r.title) + '</td><td>' + r.score + '</td><td>' + r.vector_score +
+        '</td><td>' + r.bm25_score + '</td><td class="txt-muted">' + esc(r.text.slice(0, 90)) + '</td></tr>').join('') +
+      '</tbody></table>' : '<div class="empty">向量库为空，请先构建向量数据库</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function doAdvancedRag() {
+  try {
+    const d = await api('POST', '/api/rag/advanced', { question: val('vx-question'), top_k: 5,
+      strategy: val('vx-rag-strategy'), do_rewrite: true, do_rerank: true });
+    setHtml('vx-rag-result', '<div class="result-box">' + esc(d.answer) + '</div>' +
+      '<div style="margin-top:12px"><b>答案溯源</b>' + d.citations.map(c =>
+        '<div class="rec-item"><span class="tag">[' + c.index + ']</span> ' + esc(c.title) +
+        '<div class="txt-muted" style="font-size:12px;margin-top:5px">' + esc(c.snippet) + '</div></div>').join('') + '</div>' +
+      '<div class="kv" style="margin-top:10px"><b>改写查询</b>' + esc((d.rewritten_query.variants || []).join(' / ') || '未启用') +
+      ' · ' + d.strategy + ' · ' + d.tokens + ' tokens</div>');
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+// ============ 初始化 ============
 function loadAll() {
   loadModels().catch(e=>showMsg(e.message,'error'));
   loadSkills().catch(e=>showMsg(e.message,'error'));

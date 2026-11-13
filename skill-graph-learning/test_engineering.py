@@ -40,7 +40,7 @@ def test_chat_full_offline(monkeypatch):
                       params={"temperature": 0.1}, json_schema=None)
     assert r["simulated"] is True
     assert r["total_tokens"] > 0
-    assert "离线演示" in r["content"]
+    assert "本地引擎" in r["content"]
 
 
 def test_chat_full_json_offline(monkeypatch):

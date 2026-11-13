@@ -96,5 +96,5 @@ def summary(days=7):
 
 
 def clear():
-    """清空追踪记录（用于演示重置）。"""
+    """清空追踪记录。"""
     return traces.delete_many({}).deleted_count

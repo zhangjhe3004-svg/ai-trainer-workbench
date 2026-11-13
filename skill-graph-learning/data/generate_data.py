@@ -118,7 +118,7 @@ def gen_datasets(n):
         datasets.append({
             "_id": ObjectId(),
             "name": "训练数据集-%02d" % i,
-            "description": "演示数据集",
+            "description": "内置示例数据集",
             "dataset_type": dtype,
             "format": "json",
             "tags": ["演示", dtype],
@@ -179,7 +179,7 @@ def bulk_write(col, docs, size=1000):
 
 
 def gen_engineering(models, ds, runs):
-    """工程能力演示数据：提示词模板 / 版本 / 评测集 / 红队用例 / 调用追踪。
+    """工程能力示例数据：提示词模板 / 版本 / 评测集 / 红队用例 / 调用追踪。
 
     与 init.py 配合，保证每次重置数据库后新功能页都有可直接体验的内容。
     """
@@ -209,7 +209,7 @@ def gen_engineering(models, ds, runs):
     for i, (name, tech, label, system, content, examples, schema) in enumerate(seeds):
         pid = ObjectId()
         p = {
-            "_id": pid, "name": name, "description": "内置演示模板 · " + label,
+            "_id": pid, "name": name, "description": "内置模板 · " + label,
             "technique": tech, "technique_label": label,
             "system_prompt": system, "content": content,
             "variables": ["question"] if "{{question}}" in content else
@@ -225,7 +225,7 @@ def gen_engineering(models, ds, runs):
         prompts.append(p)
         snap = {k: v for k, v in p.items() if k != "_id"}
         versions.append({"prompt_id": pid, "version": 1, "snapshot": snap,
-                         "note": "内置演示模板", "created_at": p["created_at"]})
+                         "note": "内置模板", "created_at": p["created_at"]})
 
     qa = [
         ("RAG 是什么", "检索增强生成"),
@@ -238,9 +238,9 @@ def gen_engineering(models, ds, runs):
     bad = [{"input": q, "expected": a, "keywords": [],
             "candidate": "不确定，可能与主题无关", "variables": {}} for q, a in qa]
     evalsets = [
-        {"name": "核心问答基线", "description": "内置演示：4 条黄金问答，候选答案正确",
+        {"name": "核心问答基线", "description": "内置示例：4 条黄金问答，候选答案正确",
          "cases": good, "tags": ["演示", "基线"], "created_at": now, "updated_at": now},
-        {"name": "退化对照集", "description": "内置演示：同样 4 条问题，候选答案错误，用于回归对比",
+        {"name": "退化对照集", "description": "内置示例：同样 4 条问题，候选答案错误，用于回归对比",
          "cases": bad, "tags": ["演示", "回归"], "created_at": now, "updated_at": now},
     ]
 
@@ -266,12 +266,12 @@ def gen_engineering(models, ds, runs):
         pt, ct = random.randint(120, 800), random.randint(80, 500)
         status = "error" if i == 9 else "ok"
         traces.append({
-            "kind": kind, "model": "offline-demo" if i % 3 else "gpt-4o-mini",
+            "kind": kind, "model": "local-engine" if i % 3 else "gpt-4o-mini",
             "backend": "offline" if i % 3 else "openai",
             "prompt_tokens": pt, "completion_tokens": ct, "total_tokens": pt + ct,
             "cost_usd": round((pt * 0.15 + ct * 0.6) / 1_000_000, 6),
             "latency_ms": random.randint(80, 1600), "status": status,
-            "ref_id": "", "note": "内置演示记录",
+            "ref_id": "", "note": "本地运行记录",
             "error": "模拟超时" if status == "error" else "",
             "created_at": now - timedelta(hours=i * 3),
         })
@@ -326,7 +326,7 @@ def main():
     t4 = time.time()
     runs = gen_runs(args.runs, models, ds)
 
-    # 工程能力演示数据（同时给前两个训练运行打上微调方法标记）
+    # 工程能力示例数据（同时给前两个训练运行打上微调方法标记）
     eng = gen_engineering(models, ds, runs)
     for cname, docs in eng.items():
         if docs:

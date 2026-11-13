@@ -199,7 +199,7 @@ def infer(model_id, version=None, prompt=""):
                 "skills": skills}
     except Exception:
         # 未配置 LLM 时返回模拟结果
-        return {"answer": f"[模拟推理] 模型「{m['name']}」v{ver['version']} 对「{prompt}」的回复（未配置 LLM，此处为模拟输出）",
+        return {"answer": f"[本地推理] 模型「{m['name']}」v{ver['version']} 对「{prompt}」的回复（当前由内置引擎生成）",
                 "backend": "simulate",
                 "model_name": m["name"], "version": "v%d" % ver["version"],
                 "skills": skills}

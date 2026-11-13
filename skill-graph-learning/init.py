@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""一键初始化：建库、建索引、造演示数据。
+"""一键初始化：建库、建索引、生成示例数据。
 
 用法：python init.py
 """
@@ -24,13 +24,13 @@ def main():
     init_indexes()
     print("[1/3] 索引初始化完成")
 
-    # 造演示数据
+    # 生成示例数据
     import subprocess
     data_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "generate_data.py")
     subprocess.run([sys.executable, data_script,
                     "--models", "6", "--skills", "20",
                     "--datasets", "8", "--documents", "30", "--runs", "12"], check=True)
-    print("[2/3] 演示数据生成完成")
+    print("[2/3] 示例数据生成完成")
 
     print("[3/3] 初始化完成！")
     print()

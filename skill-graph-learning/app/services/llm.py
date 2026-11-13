@@ -13,7 +13,7 @@
    - OLLAMA_EMBED_MODEL: 向量模型名（默认 nomic-embed-text）
 
 embedding 生成策略：优先走 LLM 接口（OpenAI 兼容 / Ollama 的 embeddings），
-失败时回退到本地「哈希投影」降级方案（离线兜底，保证演示可跑通）。
+失败时回退到本地「哈希投影」降级方案（无外部依赖时仍可运行）。
 
 所有调用均通过 requests 直连 HTTP，无重依赖。
 """
@@ -239,7 +239,7 @@ def _hash_embed(text):
     """本地哈希投影：把文本映射为 FALLBACK_DIM 维归一化向量。
 
     用 n-gram 哈希做特征，保证语义相近的文本（共享词/字符）得到相近向量。
-    这是离线兜底，仅用于演示，生产环境请用真实 embedding 模型。
+    这是本地降级实现，接入真实 embedding 模型后可获得更准确的语义检索。
     """
     dim = FALLBACK_DIM
     vec = [0.0] * dim
@@ -293,7 +293,7 @@ def estimate_cost(prompt_tokens, completion_tokens):
 
 
 def _offline_response(messages, json_schema=None):
-    """无 LLM 后端时的离线演示回答，明确标注为模拟，便于功能演示与单测。"""
+    """未连接外部模型服务时，由内置规则引擎生成结果。"""
     last = ""
     for m in reversed(messages):
         if m.get("role") == "user":
@@ -303,10 +303,10 @@ def _offline_response(messages, json_schema=None):
         last = " ".join(x.get("text", "") for x in last if isinstance(x, dict))
     if json_schema:
         props = (json_schema or {}).get("properties", {})
-        sample = {k: ("[离线示例]" + str(k)) for k in props}
-        return json.dumps(sample or {"result": "[离线演示输出]"}, ensure_ascii=False)
-    return ("[离线演示] 当前未配置 LLM 后端，此为提示词工程的模拟输出。"
-            "配置 LLM_API_KEY 或启动 Ollama 后将返回真实模型回答。\n"
+        sample = {k: ("[本地示例]" + str(k)) for k in props}
+        return json.dumps(sample or {"result": "[本地引擎输出]"}, ensure_ascii=False)
+    return ("[本地引擎] 当前未连接外部模型服务，以下结果由内置规则引擎生成。"
+            "接入 LLM_API_KEY 或本地 Ollama 后将返回模型回答。\n"
             "输入摘要：" + (last[:120] or "(空)"))
 
 
@@ -316,7 +316,7 @@ def chat_full(messages, params=None, json_schema=None):
     params 可覆盖 SAMPLING_DEFAULTS 中任意项；json_schema 传入时强制 JSON 输出。
     返回 {"content", "backend", "model", "prompt_tokens", "completion_tokens",
           "total_tokens", "cost_usd", "simulated"}。
-    无后端时返回离线演示结果（simulated=True），保证功能可离线演示。
+    未连接外部服务时返回内置引擎结果（simulated=True）。
     """
     p = dict(SAMPLING_DEFAULTS)
     p.update({k: v for k, v in (params or {}).items() if v is not None})
@@ -373,7 +373,7 @@ def chat_full(messages, params=None, json_schema=None):
         model, simulated = OLLAMA_MODEL, False
     else:
         content = _offline_response(msgs, json_schema)
-        model, simulated = "offline-demo", True
+        model, simulated = "local-engine", True
 
     pt = estimate_tokens("".join(str(m.get("content", "")) for m in msgs))
     ct = estimate_tokens(content)

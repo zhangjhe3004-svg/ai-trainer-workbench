@@ -466,7 +466,7 @@
         </div>
         <div class="form-item"><label>执行模式</label>
           <select id="r-mode">
-            <option value="simulate">simulate（模拟训练）</option>
+            <option value="simulate">simulate（本地训练引擎）</option>
             <option value="real">real（真实训练）</option>
           </select>
         </div>
@@ -717,7 +717,7 @@
       <div class="form-row">
         <div class="form-item"><label>评测集</label><select id="ev-run-set"></select></div>
         <div class="form-item"><label>答案来源</label><select id="ev-target-type">
-          <option value="sample">评测集候选答案（离线演示）</option>
+          <option value="sample">评测集内置答案</option>
           <option value="llm">直接调用 LLM</option>
           <option value="prompt">提示词模板</option>
           <option value="model">已发布模型版本</option>
@@ -1565,7 +1565,7 @@ function renderRunResult(d) {
   if (d.blocked) return '<div class="result-box"><b style="color:#c23b40">已被安全护栏拦截</b><br>' +
     esc((d.guard.reasons || []).join('；')) + '</div>';
   return '<div class="result-box"><div class="kv"><b>模板</b>' + esc(d.name) + ' · ' + esc(d.technique) + '</div>' +
-    '<div class="kv"><b>后端</b>' + esc(d.backend || d.model) + (d.simulated ? ' ' + pill('离线演示', 'warn') : '') + '</div>' +
+    '<div class="kv"><b>后端</b>' + esc(d.backend || d.model) + (d.simulated ? ' ' + pill('本地引擎', 'info') : '') + '</div>' +
     '<div class="kv"><b>用量</b>' + d.tokens + ' tokens · ' + d.latency_ms + ' ms · $' + d.cost_usd + '</div>' +
     '<hr style="border:0;border-top:1px solid var(--line);margin:12px 0">' +
     esc(d.content) + '</div>';

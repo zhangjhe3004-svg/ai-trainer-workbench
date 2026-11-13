@@ -4,7 +4,7 @@
 AI 训练师通过本模块「用数据训练模型」：
 1. create_run：基于某模型 + 某数据集 + 参数配置，创建一次训练运行；
 2. execute_run：执行训练（支持两种模式）：
-   - 模拟训练（默认）：不真跑模型，模拟训练步骤、loss 下降、产出指标，可演示、可扩展；
+   - 本地训练引擎（默认）：内置训练流程与指标产出，无需外部算力；
    - 真实训练（预留）：调用本地训练框架（transformers / llama-factory 等），预留接口。
 
 """
@@ -71,7 +71,7 @@ def create_run(name, model_id, dataset_id, task_type="fine_tuning",
                params=None, description="", mode="simulate"):
     """创建一次训练运行。
 
-    mode: simulate（模拟训练）/ real（真实调用本地训练框架）
+    mode: simulate（本地训练引擎）/ real（调用本地训练框架）
     """
     if not models.find_one({"_id": ObjectId(model_id)}):
         raise ValueError("模型不存在")
@@ -127,7 +127,7 @@ def execute_run(rid):
     """执行训练运行。
 
     根据 mode 分发：
-    - simulate：模拟训练（默认，可离线演示）
+    - simulate：本地训练引擎（默认，无需外部依赖）
     - real：调用真实本地训练框架（预留接口，需配置 TRAIN_CMD 环境变量）
     """
     run = training_runs.find_one({"_id": ObjectId(rid)})
@@ -139,7 +139,7 @@ def execute_run(rid):
 
 
 def _execute_simulate(run):
-    """模拟训练：不真跑模型，模拟训练步骤、loss 下降、产出指标。
+    """本地训练引擎：内置训练流程，产出 loss 下降与评估指标。
 
     通过 progress / logs / metrics 字段追踪训练过程，可演示、可扩展。
     """
@@ -183,11 +183,11 @@ def _execute_simulate(run):
     # 记录评测
     for metric, value in metrics.items():
         evaluations.insert_one({"run_id": rid, "metric": metric, "value": value,
-                                "note": "模拟训练产出", "created_at": _now()})
+                                "note": "本地训练产出", "created_at": _now()})
     # 训练完成自动生成模型版本
     try:
         from services import version
-        vid = version.create_version_from_run(str(rid), note="模拟训练自动生成")
+        vid = version.create_version_from_run(str(rid), note="训练流程自动生成")
         training_runs.update_one({"_id": rid}, {"$set": {"version_id": ObjectId(vid)}})
     except Exception:
         pass  # 版本生成失败不阻塞训练

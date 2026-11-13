@@ -93,7 +93,7 @@ def judge_case(question, expected, actual):
     except Exception:
         base = score_case(expected, actual)
         return {"score": base["score"], "raw_score": round(base["score"] * 10, 2),
-                "reason": "离线规则评分（未配置 LLM 裁判）", "source": "rule"}
+                "reason": "本地规则评分（未连接外部模型服务）", "source": "rule"}
 
 
 # ============ 黄金评测集 ============

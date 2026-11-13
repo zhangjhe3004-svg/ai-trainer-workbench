@@ -1,0 +1,2 @@
+# Windows 批处理脚本：保留原始 CRLF 换行与 GBK 编码，不做任何行尾/编码转换
+*.bat -text

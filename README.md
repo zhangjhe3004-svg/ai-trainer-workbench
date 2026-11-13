@@ -1,6 +1,6 @@
 # AI 训练师工作台（AI Trainer Workbench）
 
-> 基于 MongoDB 的 **AI 训练师工作台** —— 一个让 AI 训练师调配模型核心参数、通过数据训练模型、给模型扩展技能、并内置基础功能框架的完整业务系统，参考 [roadmap.sh/ai-engineer](https://roadmap.sh/ai-engineer) 路线图设计。
+> 基于 MongoDB 的 **AI 训练师工作台** —— 一个让 AI 训练师调配模型核心参数、通过数据训练模型、给模型扩展技能、并内置基础功能框架的完整业务系统。
 >
 > 本文档是**一站式说明**，涵盖项目介绍、快速开始、完整使用教程（含 MongoDB 安装、LLM 对接、参数调配、数据训练、技能扩展、多模态向量化与 RAG、NLP 文本处理、Compass 图形化操作、命令行、mongosh 脚本）与常见问题。
 

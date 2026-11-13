@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """知识库服务：知识文档 CRUD + 关联模型（知识注入）。
 
-对应 roadmap.sh AI Engineer：Embeddings / Knowledge / RAG。
 知识文档是注入给模型的知识载体（RAG / 知识增强），可向量化后用于语义检索。
 """
 from datetime import datetime, timezone

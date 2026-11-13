@@ -7,7 +7,6 @@ AI 训练师通过本模块「用数据训练模型」：
    - 模拟训练（默认）：不真跑模型，模拟训练步骤、loss 下降、产出指标，可演示、可扩展；
    - 真实训练（预留）：调用本地训练框架（transformers / llama-factory 等），预留接口。
 
-对应 roadmap.sh AI Engineer：Fine-tuning / Training / Evaluation。
 """
 import os
 import math

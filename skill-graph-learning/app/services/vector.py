@@ -10,7 +10,6 @@
 - MongoDB Atlas：生产环境用 $vectorSearch 原生向量检索（需 Atlas 集群 + 向量索引）。
 - 本地回退：在本地 MongoDB 上读取向量后，用 Python 算余弦相似度（零额外依赖）。
 
-对应 roadmap.sh AI Engineer：Embeddings / Vector DB / RAG。
 """
 from datetime import datetime, timezone
 

@@ -5,7 +5,6 @@ AI 训练师工作台内置 NLP 能力，供模型训练与推理时调用：
 - 每个能力优先走 LLM（OpenAI 兼容 / Ollama），未配置 LLM 时回退到本地规则/词典（离线可用）。
 - 统一返回 {"result": ..., "backend": str, "method": str}，method 标识 llm / rule。
 
-对应 roadmap.sh AI Engineer：NLP / LLM / 文本处理。
 """
 import re
 from collections import Counter

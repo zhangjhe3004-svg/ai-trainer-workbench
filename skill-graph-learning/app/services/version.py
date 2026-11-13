@@ -6,7 +6,6 @@ AI 训练师的核心工作流之一：
 2. 支持多版本并存，横向对比指标选优。
 3. 可发布（标记为线上可用）、下线、回滚。
 
-对应 roadmap.sh AI Engineer：Model Registry / Deployment / MLOps。
 """
 from datetime import datetime, timezone
 

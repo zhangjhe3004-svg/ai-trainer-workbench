@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """数据集管理服务：导入、CRUD、预览、样本标注。
 
-对应 roadmap.sh AI Engineer：Fine-tuning / Data preparation。
 """
 import json
 import csv

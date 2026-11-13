@@ -53,6 +53,8 @@ eval_runs = biz.eval_runs
 guardrail_tests = biz.guardrail_tests
 # 调用追踪：模型调用耗时、token 估算、成本、状态
 traces = biz.traces
+# 蒸馏记录：一次多模态蒸馏的输入统计、产出样本与训练结果
+distill_runs = biz.distill_runs
 
 # ============ 训练库 trainer_ai ============
 ai = client["trainer_ai"]
@@ -125,6 +127,9 @@ def init_indexes():
     # 可观测性：按时间 / 模型 / 状态
     traces.create_index([("created_at", -1)], name="idx_trace_time")
     traces.create_index([("model", 1), ("status", 1)], name="idx_trace_model_status")
+
+    # 蒸馏记录：按时间
+    distill_runs.create_index([("created_at", -1)], name="idx_distill_time")
 
     # 训练库
     samples.create_index([("model_id", 1), ("skill_id", 1)], name="uniq_model_skill", unique=True)

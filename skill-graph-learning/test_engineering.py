@@ -193,3 +193,56 @@ def test_rerank_coverage():
             {"title": "天气", "text": "天气预报", "score": 0.02}]
     out = vector.rerank("向量检索", rows, limit=2)
     assert out[0]["term_coverage"] >= out[1]["term_coverage"]
+
+
+# ============ 知识蒸馏（多模态解析，纯离线） ============
+from services import distill  # noqa: E402
+
+
+def test_distill_modes_and_formats():
+    assert set(distill.MODES.keys()) == {"quick", "enhanced"}
+    assert ".jsonl" in distill.SUPPORTED_FORMATS and ".csv" in distill.SUPPORTED_FORMATS
+
+
+def test_distill_parse_json_messages():
+    text = '[{"messages":[{"role":"user","content":"什么是RAG"},' \
+           '{"role":"assistant","content":"检索增强生成"}]}]'
+    r = distill.parse_chat(text, "chat.json")
+    assert r["format"] == "json" and len(r["samples"]) == 1
+    assert r["samples"][0]["output"] == "检索增强生成"
+
+
+def test_distill_parse_qa_keys():
+    text = '[{"question":"A?","answer":"B"},{"input":"C","output":"D"}]'
+    r = distill.parse_chat(text, "chat.json")
+    assert len(r["samples"]) == 2
+
+
+def test_distill_parse_jsonl():
+    text = '{"q":"1","a":"2"}\n{"q":"3","a":"4"}'
+    r = distill.parse_chat(text, "chat.jsonl")
+    assert r["format"] == "jsonl" and len(r["samples"]) == 2
+
+
+def test_distill_parse_csv():
+    r = distill.parse_chat("question,answer\n天气?,晴天\n姓名?,张三", "chat.csv")
+    assert r["format"] == "csv" and len(r["samples"]) == 2
+
+
+def test_distill_parse_txt_roles_and_plain():
+    a = distill.parse_chat("用户：你好\n助手：您好\n用户：再见\n助手：再见", "chat.txt")
+    b = distill.parse_chat("问题一\n答案一\n问题二\n答案二", "chat.txt")
+    assert len(a["samples"]) == 2 and len(b["samples"]) == 2
+
+
+def test_distill_parse_empty():
+    r = distill.parse_chat("", "chat.txt")
+    assert r["samples"] == []
+
+
+def test_distill_preview_with_images():
+    r = distill.preview("用户：A\n助手：B", "chat.txt",
+                        [{"name": "p.png", "mime": "image/png", "b64": "aGk="}])
+    assert r["images"] == 1
+    assert r["image_previews"][0]["url"].startswith("data:image/png;base64,")
+    assert r["preview"]

@@ -9,7 +9,7 @@ from flask import Flask, jsonify, request, render_template
 from db import init_indexes
 from services import model, dataset, document, training
 from services import llm, vector, version, nlp
-from services import prompt as prompt_svc, finetune, evalset, guardrail, trace
+from services import prompt as prompt_svc, finetune, evalset, guardrail, trace, distill
 
 app = Flask(__name__)
 
@@ -949,6 +949,47 @@ def api_llm_chat_full():
     b = _body()
     return _safe(llm.chat_full, b.get("messages", []),
                  b.get("params"), b.get("json_schema"))
+
+
+# ============ 知识蒸馏（页内一键完成） ============
+@app.get("/api/distill/config")
+def api_distill_config():
+    return ok({"modes": [dict(v, key=k) for k, v in distill.MODES.items()],
+               "formats": distill.SUPPORTED_FORMATS,
+               "max_samples": 500})
+
+
+@app.post("/api/distill/preview")
+def api_distill_preview():
+    b = _body()
+    return _safe(distill.preview, b.get("chat_text", ""), b.get("filename", ""),
+                 b.get("images"), b.get("limit", 500))
+
+
+@app.post("/api/distill/run")
+def api_distill_run():
+    b = _body()
+    return _safe(distill.run_distill,
+                 b.get("chat_text", ""), b.get("filename", ""), b.get("images"),
+                 b.get("mode", "quick"), b.get("teacher_model", ""),
+                 b.get("dataset_name", ""), bool(b.get("save_dataset", True)),
+                 bool(b.get("run_training", False)), b.get("model_id"),
+                 b.get("limit", 500))
+
+
+@app.get("/api/distill/runs")
+def api_distill_runs():
+    return _safe(distill.list_runs, int(request.args.get("limit", 50)))
+
+
+@app.get("/api/distill/runs/<rid>")
+def api_distill_run_detail(rid):
+    return _safe(distill.get_run, rid)
+
+
+@app.delete("/api/distill/runs/<rid>")
+def api_distill_run_delete(rid):
+    return _safe(distill.delete_run, rid)
 
 
 if __name__ == "__main__":

@@ -61,9 +61,10 @@ def get_run(rid):
     d = training_runs.find_one({"_id": ObjectId(rid)})
     if not d:
         return None
-    d["_id"] = str(d["_id"])
-    d["model_id"] = str(d["model_id"]) if d.get("model_id") else None
-    d["dataset_id"] = str(d["dataset_id"]) if d.get("dataset_id") else None
+    # 完整文档可能含 version_id 等 ObjectId 字段，统一转成字符串
+    for k, v in list(d.items()):
+        if isinstance(v, ObjectId):
+            d[k] = str(v)
     return d
 
 

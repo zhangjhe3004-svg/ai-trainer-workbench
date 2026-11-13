@@ -202,6 +202,7 @@
   <symbol id="ico-eval" viewBox="0 0 24 24"><path d="M5 4h14v16l-7-4-7 4z"/><path d="M9 9h6M9 12h4"/></symbol>
   <symbol id="ico-guard" viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></symbol>
   <symbol id="ico-trace" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+  <symbol id="ico-distill" viewBox="0 0 24 24"><path d="M4 4h16l-6 8v6l-4 2v-8z"/><path d="M8 8h8"/></symbol>
 </svg>
 
 <aside class="sidebar">
@@ -232,6 +233,7 @@
   <div class="tabs" id="tabbar3">
     <div class="tab" data-tab="prompts"><svg class="nav-ico"><use href="#ico-prompt"/></svg><span class="nav-txt">提示词工程</span></div>
     <div class="tab" data-tab="finetune"><svg class="nav-ico"><use href="#ico-finetune"/></svg><span class="nav-txt">微调策略</span></div>
+    <div class="tab" data-tab="distill"><svg class="nav-ico"><use href="#ico-distill"/></svg><span class="nav-txt">知识蒸馏</span></div>
     <div class="tab" data-tab="eval"><svg class="nav-ico"><use href="#ico-eval"/></svg><span class="nav-txt">评测中心</span></div>
     <div class="tab" data-tab="guard"><svg class="nav-ico"><use href="#ico-guard"/></svg><span class="nav-txt">安全护栏</span></div>
     <div class="tab" data-tab="trace"><svg class="nav-ico"><use href="#ico-trace"/></svg><span class="nav-txt">可观测性</span></div>
@@ -302,6 +304,16 @@
     <div class="panel">
       <h2>模型列表</h2>
       <table id="model-table"><thead><tr><th>名称</th><th>基座/来源</th><th>类型</th><th>来源</th><th>状态</th><th>技能数</th><th>训练数</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="panel" id="mount-panel">
+      <h2>技能挂载（本页完成）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>模型</label><select id="mount-model"></select></div>
+        <div class="form-item"><label>技能</label><select id="mount-skill"></select></div>
+        <button class="btn-primary" onclick="doMountSkill()">挂载技能</button>
+        <button class="btn-muted" onclick="doUnmountSkill()">卸载所选技能</button>
+      </div>
+      <div class="txt-muted" style="font-size:12px">从上方列表点「挂载」会自动选中该模型，在这里选技能即可完成，无需切换页面。</div>
     </div>
   </div>
 
@@ -692,11 +704,61 @@
       </div>
       <div class="form-row"><div class="form-item" style="flex:1"><label>覆盖超参（JSON，可选）</label>
         <input id="ft-overrides" style="min-width:100%;width:100%" placeholder='{"lora_r": 32, "epochs": 5}'></div></div>
-      <button class="btn-primary" onclick="createFinetuneRun()">创建任务（可到「训练运行」页执行）</button>
+      <button class="btn-primary" onclick="createFinetuneRun()">创建任务</button>
+      <span class="txt-muted" style="font-size:12px;margin-left:10px">创建后可在本页直接执行、查看实时进度</span>
+    </div>
+    <div class="panel">
+      <h2>本页训练执行与实时进度</h2>
+      <div id="ft-progress"><div class="empty">在下方任务列表点击「执行」或「异步执行」，进度会显示在这里</div></div>
     </div>
     <div class="panel">
       <h2>微调任务列表</h2>
-      <table id="ft-runs-table"><thead><tr><th>任务名称</th><th>方法</th><th>状态</th><th>进度</th><th>创建时间</th></tr></thead><tbody></tbody></table>
+      <table id="ft-runs-table"><thead><tr><th>任务名称</th><th>方法</th><th>状态</th><th>进度</th><th>创建时间</th><th>操作</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- 知识蒸馏 -->
+  <div id="tab-distill" class="tab-panel" style="display:none">
+    <div class="panel">
+      <h2>上传聊天记录与图片</h2>
+      <div class="form-row">
+        <div class="form-item"><label>聊天记录文件（JSON / JSONL / CSV / TXT，可多选）</label>
+          <input type="file" id="ds-chat-files" multiple accept=".json,.jsonl,.csv,.txt,.log" onchange="onDistillChatFiles(event)"></div>
+        <div class="form-item"><label>图片素材（可多选）</label>
+          <input type="file" id="ds-image-files" multiple accept="image/*" onchange="onDistillImages(event)"></div>
+      </div>
+      <div class="form-row"><div class="form-item" style="flex:1"><label>或直接粘贴聊天记录</label>
+        <textarea id="ds-chat-text" style="min-width:100%;width:100%;min-height:120px" placeholder="用户：你好&#10;助手：您好"></textarea></div></div>
+      <div id="ds-file-info" class="txt-muted" style="font-size:12px"></div>
+      <div id="ds-image-preview" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"></div>
+      <div class="form-row" style="margin-top:12px">
+        <button class="btn-soft" onclick="previewDistill()">解析预览</button>
+        <span class="txt-muted" style="font-size:12px;align-self:center">自动识别对话数组、messages、问答字段、CSV 表格与纯文本逐行配对</span>
+      </div>
+      <div id="ds-preview"></div>
+    </div>
+    <div class="panel">
+      <h2>蒸馏设置</h2>
+      <div class="form-row">
+        <div class="form-item"><label>蒸馏模式</label><select id="ds-mode" onchange="onDistillModeChange()"></select></div>
+        <div class="form-item"><label>教师模型（可选）</label><input id="ds-teacher" placeholder="留空则用内置引擎"></div>
+        <div class="form-item"><label>数据集名称（可选）</label><input id="kd-name" placeholder="自动生成"></div>
+      </div>
+      <div class="form-row">
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="ds-save" checked> 保存为数据集</label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="ds-train"> 立即执行蒸馏训练</label>
+        <div class="form-item"><label>学生模型</label><select id="ds-model"></select></div>
+        <button class="btn-primary" onclick="runDistill()">开始蒸馏</button>
+      </div>
+      <div id="ds-mode-hint" class="txt-muted" style="font-size:12px"></div>
+    </div>
+    <div class="panel">
+      <h2>蒸馏结果</h2>
+      <div id="ds-result"><div class="empty">上传聊天记录或图片后，点击「开始蒸馏」</div></div>
+    </div>
+    <div class="panel">
+      <h2>蒸馏历史</h2>
+      <table id="ds-history"><thead><tr><th>时间</th><th>模式</th><th>格式</th><th>问答 / 图片 / 样本</th><th>数据集</th><th>训练</th><th>操作</th></tr></thead><tbody></tbody></table>
     </div>
   </div>
 
@@ -713,16 +775,24 @@
       <table id="ev-sets-table"><thead><tr><th>名称</th><th>用例数</th><th>说明</th><th>操作</th></tr></thead><tbody></tbody></table>
     </div>
     <div class="panel">
+      <h2>从已有数据集导入用例（本页完成）</h2>
+      <div class="form-row">
+        <div class="form-item"><label>数据集</label><select id="ev-import-dataset"></select></div>
+        <div class="form-item"><label>导入到评测集</label><select id="ev-import-evalset"></select></div>
+        <button class="btn-primary" onclick="importEvalFromDataset()">导入用例</button>
+      </div>
+    </div>
+    <div class="panel">
       <h2>运行评测</h2>
       <div class="form-row">
         <div class="form-item"><label>评测集</label><select id="ev-run-set"></select></div>
-        <div class="form-item"><label>答案来源</label><select id="ev-target-type">
+        <div class="form-item"><label>答案来源</label><select id="ev-target-type" onchange="onEvalTargetTypeChange()">
           <option value="sample">评测集内置答案</option>
           <option value="llm">直接调用 LLM</option>
           <option value="prompt">提示词模板</option>
           <option value="model">已发布模型版本</option>
         </select></div>
-        <div class="form-item"><label>目标 ID</label><input id="ev-target-id" placeholder="模板/模型 ID，可留空" style="width:190px"></div>
+        <div class="form-item"><label>选择目标</label><select id="ev-target-id" style="max-width:230px"></select></div>
         <div class="form-item"><label>LLM 裁判</label><select id="ev-judge"><option value="0">关闭</option><option value="1">开启</option></select></div>
         <button class="btn-primary" onclick="runEvalset()">开始评测</button>
       </div>
@@ -823,14 +893,15 @@ const PAGE_META = {
   vector:    ['向量检索', '相似度检索、多模态图文召回、混合检索与答案溯源'],
   prompts:   ['提示词工程', '模板与版本管理、12 种提示技巧、变量渲染、试跑与 A/B 对比'],
   finetune:  ['微调策略', 'SFT / LoRA / QLoRA / DPO / RLHF 等 8 种方法与专属超参模板'],
+  distill:   ['知识蒸馏', '上传聊天记录与图片，一键生成蒸馏样本，页内直接落库与训练'],
   eval:      ['评测中心', '黄金评测集、自动评分、LLM 裁判、回归与 A/B 对比'],
   guard:     ['安全护栏', '提示注入检测、PII 脱敏、敏感词过滤与红队批量测试'],
   trace:     ['可观测性', '调用追踪、成功率、token 消耗、成本与延迟看板'],
 };
 // 工程能力页按需懒加载，避免首屏发起过多请求
 const PAGE_LOADERS = {
-  prompts: loadPromptPage, finetune: loadFinetunePage, eval: loadEvalPage,
-  guard: loadGuardPage, trace: loadTracePage, vector: loadVectorExtras,
+  prompts: loadPromptPage, finetune: loadFinetunePage, distill: loadDistillPage,
+  eval: loadEvalPage, guard: loadGuardPage, trace: loadTracePage, vector: loadVectorExtras,
 };
 document.querySelectorAll('.tab').forEach(t => {
   t.onclick = () => {
@@ -964,13 +1035,40 @@ async function delModel(id) {
   catch(e) { showMsg(e.message, 'error'); }
 }
 async function mountSkill(modelId) {
-  const data = await api('GET', '/api/skills?size=500');
-  const name = prompt('输入要挂载的技能名称（可先到「技能扩展」页查看）：');
-  if (!name) return;
-  const skill = data.rows.find(s => s.name === name);
-  if (!skill) { showMsg('技能不存在：' + name, 'error'); return; }
-  try { await api('POST', `/api/models/${modelId}/skills/${skill._id}`); showMsg('技能挂载成功'); loadModels(); }
-  catch(e) { showMsg(e.message, 'error'); }
+  // 不再弹窗输入名称，也不跳转：选中模型并定位到本页的挂载区
+  await loadMountSkills();
+  const sel = document.getElementById('mount-model');
+  if (sel) sel.value = modelId;
+  const panel = document.getElementById('mount-panel');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  showMsg('已选定模型，请在「技能挂载」区选择技能并点击挂载');
+}
+
+async function loadMountSkills() {
+  const [ms, ss] = await Promise.all([
+    api('GET', '/api/models?size=200'), api('GET', '/api/skills?size=500')]);
+  setSelect('mount-model', (ms.rows || []).map(m =>
+    '<option value="' + m._id + '">' + esc(m.name) + '</option>').join(''));
+  setSelect('mount-skill', (ss.rows || []).map(s =>
+    '<option value="' + s._id + '">' + esc(s.name) + '</option>').join(''));
+}
+
+async function doMountSkill() {
+  const mid = val('mount-model'), sid = val('mount-skill');
+  if (!mid || !sid) return showMsg('请先选择模型与技能', 'error');
+  try {
+    await api('POST', '/api/models/' + mid + '/skills/' + sid);
+    showMsg('技能挂载成功'); await loadModels(); await loadMountSkills();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function doUnmountSkill() {
+  const sid = val('mount-skill');
+  if (!sid) return showMsg('请先选择技能', 'error');
+  try {
+    await api('DELETE', '/api/skills/' + sid + '/mount');
+    showMsg('技能已卸载'); await loadModels();
+  } catch (e) { showMsg(e.message, 'error'); }
 }
 
 // ============ 参数调配 ============
@@ -1719,8 +1817,52 @@ async function createFinetuneRun() {
     await api('POST', '/api/finetune/runs', { name: val('ft-name'), model_id: val('ft-model'),
       dataset_id: val('ft-dataset'), method: val('ft-method'), overrides: collectFtOverrides(),
       mode: 'simulate' });
-    showMsg('微调任务已创建，可到「训练运行」页执行或异步训练');
+    showMsg('微调任务已创建，可在本页直接执行或异步训练');
     await loadFinetuneRuns();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+let ftTimer = null;
+function renderFinetuneProgress(p, title) {
+  const prog = Math.round((p.progress || 0) * 100);
+  const metrics = p.metrics || {};
+  const logs = (p.logs || []).slice(-8).map(x =>
+    esc(typeof x === 'string' ? x : JSON.stringify(x))).join('<br>');
+  setHtml('ft-progress',
+    '<div class="kv"><b>任务</b>' + esc(title || '微调任务') + ' · ' +
+      pill(p.status || 'running', p.status === 'completed' ? 'ok' : (p.status === 'failed' ? 'bad' : 'info')) + '</div>' +
+    '<div class="progress-bar"><div class="fill" style="width:' + prog + '%"></div></div>' +
+    '<div class="kv"><b>进度</b>' + prog + '% · 指标：' + esc(JSON.stringify(metrics)) + '</div>' +
+    (logs ? '<div class="code-box light" style="margin-top:8px">' + logs + '</div>' : ''));
+}
+
+async function executeFinetuneRun(id, name) {
+  if (ftTimer) { clearInterval(ftTimer); ftTimer = null; }
+  setHtml('ft-progress', '<div class="result-box">正在执行训练...</div>');
+  try {
+    const d = await api('POST', '/api/runs/' + id + '/execute', {});
+    renderFinetuneProgress({status: d.status || 'completed', progress: 1,
+                            metrics: d.metrics || {}, logs: []}, name);
+    showMsg('训练执行完成');
+    await loadFinetuneRuns();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function startFinetuneAsync(id, name) {
+  if (ftTimer) clearInterval(ftTimer);
+  try {
+    await api('POST', '/api/runs/' + id + '/start-async', {});
+    setHtml('ft-progress', '<div class="result-box">训练已启动，正在轮询进度...</div>');
+    ftTimer = setInterval(async () => {
+      try {
+        const p = await api('GET', '/api/runs/' + id + '/progress');
+        renderFinetuneProgress(p, name);
+        if (p.status === 'completed' || p.status === 'failed') {
+          clearInterval(ftTimer); ftTimer = null;
+          await loadFinetuneRuns();
+        }
+      } catch (e) { clearInterval(ftTimer); ftTimer = null; }
+    }, 800);
   } catch (e) { showMsg(e.message, 'error'); }
 }
 
@@ -1729,12 +1871,55 @@ async function loadFinetuneRuns() {
   document.querySelector('#ft-runs-table tbody').innerHTML = rows.length ? rows.map(r =>
     '<tr><td>' + esc(r.name) + '</td><td><span class="tag">' + esc(r.method_label || r.finetune_method) +
     '</span></td><td>' + pill(r.status, r.status === 'completed' ? 'ok' : (r.status === 'failed' ? 'bad' : 'info')) +
-    '</td><td>' + Math.round((r.progress || 0) * 100) + '%</td><td>' + fmtDate(r.created_at) + '</td></tr>').join('')
-    : emptyRow(5, '暂无微调任务，请在上方创建');
+    '</td><td>' + Math.round((r.progress || 0) * 100) + '%</td><td>' + fmtDate(r.created_at) +
+    '</td><td><div class="actions">' +
+    '<button class="btn-ok btn-sm" onclick="executeFinetuneRun(\'' + r._id + '\',\'' + esc(r.name).replace(/'/g, '') + '\')">执行</button>' +
+    '<button class="btn-soft btn-sm" onclick="startFinetuneAsync(\'' + r._id + '\',\'' + esc(r.name).replace(/'/g, '') + '\')">异步执行</button>' +
+    '</div></td></tr>').join('')
+    : emptyRow(6, '暂无微调任务，请在上方创建');
 }
 
 // ============ 评测中心 ============
-async function loadEvalPage() { await Promise.all([loadEvalsets(), loadEvalRuns()]); }
+let EV_PROMPTS = [], EV_VERSIONS = [];
+
+async function loadEvalPage() {
+  const [ps, vs, ds] = await Promise.all([
+    api('GET', '/api/prompts?size=200'),
+    api('GET', '/api/versions?size=200'),
+    api('GET', '/api/datasets?size=200')]);
+  EV_PROMPTS = ps.rows || [];
+  EV_VERSIONS = vs.rows || [];
+  setSelect('ev-import-dataset', (ds.rows || []).map(d =>
+    '<option value="' + d._id + '">' + esc(d.name) + '</option>').join(''));
+  await Promise.all([loadEvalsets(), loadEvalRuns()]);
+  onEvalTargetTypeChange();
+}
+
+function onEvalTargetTypeChange() {
+  const t = val('ev-target-type');
+  let opts = '<option value="">无需选择目标</option>';
+  if (t === 'prompt') {
+    opts = EV_PROMPTS.length ? EV_PROMPTS.map(p =>
+      '<option value="' + p._id + '">' + esc(p.name) + '</option>').join('')
+      : '<option value="">暂无提示词模板</option>';
+  } else if (t === 'model') {
+    opts = EV_VERSIONS.length ? EV_VERSIONS.map(v =>
+      '<option value="' + v._id + '">' + esc(v.name || ('v' + (v.version || ''))) + '</option>').join('')
+      : '<option value="">暂无模型版本</option>';
+  }
+  setHtml('ev-target-id', opts);
+}
+
+async function importEvalFromDataset() {
+  const did = val('ev-import-dataset'), eid = val('ev-import-evalset');
+  if (!did || !eid) return showMsg('请选择数据集与目标评测集', 'error');
+  try {
+    const d = await api('POST', '/api/evalsets/' + eid + '/import-dataset',
+      { dataset_id: did, limit: 100 });
+    showMsg('已导入 ' + d.imported + ' 条用例，本页可直接运行评测');
+    await loadEvalsets();
+  } catch (e) { showMsg(e.message, 'error'); }
+}
 
 async function loadEvalsets() {
   const d = await api('GET', '/api/evalsets?size=200');
@@ -1743,6 +1928,8 @@ async function loadEvalsets() {
     '</td><td><button class="btn-danger btn-sm" onclick="deleteEvalset(\'' + s._id + '\')">删除</button></td></tr>').join('')
     : emptyRow(4, '暂无评测集');
   setSelect('ev-run-set', d.rows.map(s => '<option value="' + s._id + '">' + esc(s.name) + '</option>').join(''),
+    d.rows.length ? '' : '请先创建评测集');
+  setSelect('ev-import-evalset', d.rows.map(s => '<option value="' + s._id + '">' + esc(s.name) + '</option>').join(''),
     d.rows.length ? '' : '请先创建评测集');
 }
 
@@ -1927,6 +2114,200 @@ async function doAdvancedRag() {
   } catch (e) { showMsg(e.message, 'error'); }
 }
 
+// ============ 知识蒸馏（上传、解析、落库、训练、结果全部在本页完成） ============
+let DS_IMAGES = [], DS_MODES = [], DS_FILENAME = '', DS_FILE_INFO = '';
+
+async function loadDistillPage() {
+  const [cfg, ms] = await Promise.all([
+    api('GET', '/api/distill/config'), api('GET', '/api/models?size=200')]);
+  DS_MODES = cfg.modes || [];
+  setHtml('ds-mode', DS_MODES.map(m =>
+    '<option value="' + m.key + '">' + esc(m.name) + '</option>').join(''));
+  setSelect('ds-model', (ms.rows || []).map(m =>
+    '<option value="' + m._id + '">' + esc(m.name) + '</option>').join(''));
+  onDistillModeChange();
+  await loadDistillHistory();
+}
+
+function onDistillModeChange() {
+  const m = DS_MODES.find(x => x.key === val('ds-mode'));
+  setHtml('ds-mode-hint', m ? esc(m.description) : '');
+}
+
+function compressImage(url, maxSide) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      const s = Math.min(1, (maxSide || 1024) / Math.max(w, h));
+      w = Math.round(w * s); h = Math.round(h * s);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => resolve(url);
+    img.src = url;
+  });
+}
+
+function setDistillFileInfo() {
+  setHtml('ds-file-info', esc(DS_FILE_INFO || '尚未选择文件'));
+}
+
+async function onDistillChatFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 1) {
+    // 单文件保持原文，避免分隔符破坏 JSON / JSONL / CSV 结构
+    document.getElementById('ds-chat-text').value = await files[0].text();
+    DS_FILENAME = files[0].name;
+  } else if (files.length > 1) {
+    const texts = [];
+    for (const f of files) texts.push(await f.text());
+    document.getElementById('ds-chat-text').value = texts.join('\n');
+    DS_FILENAME = '';
+  }
+  if (files.length) DS_FILE_INFO = '已读取 ' + files.length + ' 个文件：' + files.map(f => f.name).join('、');
+  if (DS_IMAGES.length) DS_FILE_INFO += ' · 已加载 ' + DS_IMAGES.length + ' 张图片';
+  setDistillFileInfo();
+}
+
+async function onDistillImages(e) {
+  const files = Array.from(e.target.files || []);
+  DS_IMAGES = [];
+  for (const f of files) {
+    const raw = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+    const url = await compressImage(raw, 1024);
+    DS_IMAGES.push({ name: f.name, mime: 'image/jpeg', b64: String(url).split(',')[1] || '' });
+  }
+  setHtml('ds-image-preview', DS_IMAGES.map(im =>
+    '<div style="border:1px solid var(--line);border-radius:10px;padding:6px;background:#fafbfd">' +
+    '<img src="data:image/jpeg;base64,' + im.b64 + '" style="width:88px;height:70px;object-fit:cover;border-radius:6px">' +
+    '<div class="txt-muted" style="font-size:10px;margin-top:4px;max-width:88px;overflow:hidden">' +
+    esc(im.name) + '</div></div>').join(''));
+  DS_FILE_INFO = (DS_FILE_INFO.split(' · ')[0] || '') +
+    (DS_IMAGES.length ? ' · 已加载 ' + DS_IMAGES.length + ' 张图片' : '');
+  setDistillFileInfo();
+}
+
+function distillPayload() {
+  return {
+    chat_text: document.getElementById('ds-chat-text').value || '',
+    filename: DS_FILENAME,
+    images: DS_IMAGES,
+    mode: val('ds-mode') || 'quick',
+    teacher_model: val('ds-teacher'),
+    dataset_name: val('kd-name'),
+    save_dataset: document.getElementById('ds-save').checked,
+    run_training: document.getElementById('ds-train').checked,
+    model_id: val('ds-model') || null,
+  };
+}
+
+async function previewDistill() {
+  const p = distillPayload();
+  if (!p.chat_text.trim() && !p.images.length)
+    return showMsg('请先上传或粘贴聊天记录，或上传图片', 'error');
+  try {
+    const d = await api('POST', '/api/distill/preview',
+      { chat_text: p.chat_text, filename: p.filename, images: p.images });
+    let h = '<div class="result-box"><b>识别格式：</b>' + esc(d.format) +
+      ' · 解析到 ' + d.samples.length + ' 组问答 · 图片 ' + d.images + ' 张' +
+      (d.warning ? '<br>' + esc(d.warning) : '') + '</div>';
+    if (d.preview.length) {
+      h += '<table style="margin-top:10px"><thead><tr><th>#</th><th>输入</th><th>输出</th></tr></thead><tbody>' +
+        d.preview.map((s, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s.input) +
+          '</td><td>' + esc(s.output) + '</td></tr>').join('') + '</tbody></table>';
+    }
+    if (d.image_previews.length) {
+      h += '<div style="display:flex;gap:8px;margin-top:10px">' +
+        d.image_previews.map(x => '<img src="' + x.url +
+          '" style="width:90px;height:70px;object-fit:cover;border-radius:8px">').join('') + '</div>';
+    }
+    setHtml('ds-preview', h);
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+function renderDistillResult(d) {
+  let h = '<div class="stat-grid">' +
+    '<div class="stat-card"><div class="label">生成样本</div><div class="value">' + d.sample_count + '</div></div>' +
+    '<div class="stat-card"><div class="label">对话问答</div><div class="value">' + d.chat_pairs + '</div></div>' +
+    '<div class="stat-card"><div class="label">图片素材</div><div class="value">' + d.image_count + '</div></div>' +
+    '<div class="stat-card"><div class="label">耗时</div><div class="value">' + d.elapsed_ms +
+      '<span class="unit">ms</span></div></div></div>';
+  h += '<div class="kv"><b>模式 / 格式</b>' + esc(d.mode_label || d.mode) + ' · ' + esc(d.format) + '</div>';
+  h += '<div class="kv"><b>数据集</b>' +
+    (d.dataset_id ? esc(d.dataset_name) + ' · ' + esc(d.dataset_id) : '未保存') + '</div>';
+  if (d.image_indexed) h += '<div class="kv"><b>多模态</b>已向量化 ' + d.image_indexed + ' 张图片到知识库</div>';
+  if (d.train) h += '<div class="kv"><b>页内训练</b>' +
+    pill(d.train.status || 'running', d.train.status === 'completed' ? 'ok' : 'info') +
+    ' · 进度 ' + Math.round((d.train.progress || 0) * 100) + '% · 指标 ' +
+    esc(JSON.stringify(d.train.metrics || {})) + '</div>';
+  if (d.warning) h += '<div class="kv"><b>提示</b>' + esc(d.warning) + '</div>';
+  if ((d.preview || []).length) {
+    h += '<table style="margin-top:12px"><thead><tr><th>#</th><th>类型</th><th>输入</th><th>蒸馏输出</th></tr></thead><tbody>' +
+      d.preview.map((s, i) => '<tr><td>' + (s.index != null ? s.index + 1 : i + 1) + '</td><td>' +
+        (s.kind === 'image' ? pill('图片', 'info') : pill('对话', 'ok')) + '</td><td>' +
+        esc(s.input) + '</td><td>' + esc(s.output) + '</td></tr>').join('') + '</tbody></table>';
+  }
+  if ((d.image_previews || []).length) {
+    h += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+      d.image_previews.map(x => '<div><img src="' + x.url +
+        '" style="width:110px;height:84px;object-fit:cover;border-radius:8px">' +
+        '<div class="txt-muted" style="font-size:10px">' + esc(x.name) + '</div></div>').join('') + '</div>';
+  }
+  setHtml('ds-result', h);
+}
+
+async function runDistill() {
+  const p = distillPayload();
+  if (!p.chat_text.trim() && !p.images.length)
+    return showMsg('请先上传或粘贴聊天记录、或上传图片', 'error');
+  setHtml('ds-result', '<div class="result-box">正在蒸馏，解析聊天记录与图片并生成样本...</div>');
+  try {
+    const d = await api('POST', '/api/distill/run', p);
+    renderDistillResult(d);
+    showMsg('蒸馏完成，共生成 ' + d.sample_count + ' 条样本');
+    await loadDistillHistory();
+  } catch (e) {
+    showMsg(e.message, 'error');
+    setHtml('ds-result', '<div class="result-box">蒸馏失败：' + esc(e.message) + '</div>');
+  }
+}
+
+async function loadDistillHistory() {
+  const rows = await api('GET', '/api/distill/runs?limit=50');
+  document.querySelector('#ds-history tbody').innerHTML = rows.length ? rows.map(r =>
+    '<tr><td>' + fmtDate(r.created_at) + '</td><td>' + esc(r.mode_label || r.mode) +
+    '</td><td>' + esc(r.format) + '</td><td>' + r.chat_pairs + ' / ' + r.image_count + ' / ' + r.sample_count +
+    '</td><td>' + esc(r.dataset_name || '-') + '</td><td>' +
+    (r.train ? pill(r.train.status || 'running', 'ok') : pill('未训练', 'info')) +
+    '</td><td><div class="actions">' +
+    '<button class="btn-soft btn-sm" onclick="viewDistillRun(\'' + r._id + '\')">查看</button>' +
+    '<button class="btn-danger btn-sm" onclick="deleteDistillRun(\'' + r._id + '\')">删除</button>' +
+    '</div></td></tr>').join('')
+    : emptyRow(7, '暂无蒸馏记录');
+}
+
+async function viewDistillRun(rid) {
+  try {
+    const d = await api('GET', '/api/distill/runs/' + rid);
+    renderDistillResult(d);
+    document.getElementById('ds-result').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) { showMsg(e.message, 'error'); }
+}
+
+async function deleteDistillRun(rid) {
+  if (!confirm('确认删除这条蒸馏记录？')) return;
+  try { await api('DELETE', '/api/distill/runs/' + rid); showMsg('已删除'); await loadDistillHistory(); }
+  catch (e) { showMsg(e.message, 'error'); }
+}
+
 // ============ 初始化 ============
 function loadAll() {
   loadModels().catch(e=>showMsg(e.message,'error'));
@@ -1935,6 +2316,7 @@ function loadAll() {
   loadDocuments().catch(e=>showMsg(e.message,'error'));
   loadRuns().catch(e=>showMsg(e.message,'error'));
   loadVersions().catch(e=>showMsg(e.message,'error'));
+  loadMountSkills().catch(e=>showMsg(e.message,'error'));
   loadLlmStatus();
 }
 

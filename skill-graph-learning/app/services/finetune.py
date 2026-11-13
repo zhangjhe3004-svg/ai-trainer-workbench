@@ -191,9 +191,10 @@ def list_finetune_runs(method=None, limit=50):
         cond["finetune_method"] = method
     rows = []
     for r in training_runs.find(cond).sort("created_at", -1).limit(int(limit)):
-        r["_id"] = str(r["_id"])
-        r["model_id"] = str(r["model_id"]) if r.get("model_id") else None
-        r["dataset_id"] = str(r["dataset_id"]) if r.get("dataset_id") else None
+        # 训练完成后会写入 version_id 等 ObjectId 字段，统一转成字符串
+        for k, v in list(r.items()):
+            if isinstance(v, ObjectId):
+                r[k] = str(v)
         rows.append(r)
     return rows
 

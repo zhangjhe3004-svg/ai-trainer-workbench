@@ -36,6 +36,7 @@
   - [十六、mongosh 脚本操作](#十六mongosh-脚本操作)
   - [十七、常见问题（FAQ）](#十七常见问题faq)
   - [十八、工程能力（提示词 / 微调 / 评测 / 护栏 / 可观测）](#十八工程能力提示词--微调--评测--护栏--可观测)
+  - [十九、知识蒸馏与页内闭环](#十九知识蒸馏与页内闭环)
 - [数据模型](#数据模型)
 - [API 概览](#api-概览)
 - [业务闭环](#业务闭环)
@@ -76,7 +77,7 @@
 - **向量数据库**：自动向量化 + 余弦相似度自动归类 + 双通道检索（Atlas `$vectorSearch` / 本地余弦）。
 - **LLM 接入**：统一适配 OpenAI 兼容接口与本地 Ollama，支持 RAG 问答。
 - **评测追踪**：记录 accuracy / f1 / bleu / rouge / latency / cost 等指标。
-- **双入口操作**：可视化网页后台（NOVAMED 风格侧边栏工作台，15 个功能页）+ 命令行交互菜单。
+- **双入口操作**：可视化网页后台（NOVAMED 风格侧边栏工作台，16 个功能页）+ 命令行交互菜单。
 - **提示词工程**：模板与版本快照、12 种提示技巧（Zero/Few-shot、CoT、Self-Consistency、ToT、ReAct、Step-back、System/Role/Contextual、APE）、变量占位符、结构化输出与 A/B 对比。
 - **微调策略**：SFT / LoRA / QLoRA / 全参数 / 指令调优 / DPO / RLHF / 知识蒸馏 8 种方法，各带专属超参模板与训练命令生成。
 - **系统化评测**：黄金评测集、自动评分（精确匹配 / 关键词覆盖 / 文本相似度）、LLM-as-a-Judge、回归与 A/B 对比。
@@ -84,6 +85,7 @@
 - **可观测性**：调用追踪、成功率、token 消耗、成本（USD）与延迟看板。
 - **RAG 进阶**：4 种分块策略、BM25 + 向量混合检索（RRF 融合）、查询重写、重排序、答案溯源。
 - **完整采样参数**：temperature / top_k / top_p / max_tokens / stop / frequency_penalty / presence_penalty / seed，含 JSON 结构化输出与 token / 成本估算。
+- **多模态知识蒸馏**：上传聊天记录（JSON / JSONL / CSV / TXT）与图片，一键解析、生成蒸馏样本、写入数据集与向量库，并可在当前页直接发起训练。
 - **可复现脚本**：建库、造数、七类查询、聚合统计、索引 explain 对比，全部 mongosh/Python 脚本化。
 
 ## 快速开始
@@ -222,10 +224,10 @@ python app.py
 
 网页后台采用 **NOVAMED 风格侧边栏工作台**：左侧固定导航栏（分组：工作空间 / 智能能力）、顶部面包屑与系统状态栏、页面标题与副标题随导航联动；内容区为浅灰蓝背景 + 白色圆角卡片，主色 `#2563eb`，配胶囊状态标签、线性 SVG 图标与柔和阴影。窗口宽度 ≤ 980px 时侧边栏自动折叠为图标栏。
 
-共 **15 个功能页**：
+共 **16 个功能页**：
 - 工作空间：模型管理 / 参数调配 / 技能扩展 / 数据集 / 知识库 / 训练运行 / 模型版本
 - 智能能力：智能助手 / NLP 功能 / 向量检索
-- 工程能力：提示词工程 / 微调策略 / 评测中心 / 安全护栏 / 可观测性
+- 工程能力：提示词工程 / 微调策略 / 知识蒸馏 / 评测中心 / 安全护栏 / 可观测性
 
 ### 六、模型管理
 
@@ -600,6 +602,48 @@ curl -X POST http://127.0.0.1:5000/api/rag/advanced \
 
 > 示例数据：`init.py` 一键初始化会写入 4 个提示词模板、2 个黄金评测集、10 条红队用例与 12 条调用追踪，重置后各功能页可直接体验。
 
+### 十九、知识蒸馏与页内闭环
+
+#### 1. 简化蒸馏
+
+「知识蒸馏」页把原本分散在数据集导入、知识库与训练运行的链路收拢成一次操作：
+
+1. 上传聊天记录（`.json` / `.jsonl` / `.csv` / `.txt` / `.log`，可多选）或直接粘贴文本；
+2. 上传图片（可多选，自动压缩并生成缩略图）；
+3. 选一个模式（快速蒸馏 / 教师增强），可选填教师模型与数据集名称；
+4. 点击「开始蒸馏」。
+
+系统自动完成：格式识别 → 问答配对抽取 → 图片向量化入多模态知识库 → 生成蒸馏样本 → 写入数据集 → 可选立即执行蒸馏训练 → 页内展示统计、样本预览、图片预览与训练指标，并写入蒸馏历史。**上传、解析、落库、训练、结果查看全部在本页完成**，无需切换页面。
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/distill/preview \
+  -H "Content-Type: application/json" \
+  -d '{"chat_text":"用户：什么是RAG\n助手：检索增强生成","filename":"chat.txt"}'
+
+curl -X POST http://127.0.0.1:5000/api/distill/run \
+  -H "Content-Type: application/json" \
+  -d '{"chat_text":"用户：什么是RAG\n助手：检索增强生成","filename":"chat.txt","mode":"quick","save_dataset":true,"run_training":true}'
+```
+
+聊天记录自动识别四类结构：`messages` 对话数组、`question/answer` 或 `input/output` 字段、CSV 表格、纯文本（带角色标记或相邻两行配对）。图片以 base64 进入多模态向量库，可作为 RAG 图片召回源。
+
+#### 2. 各功能页页内闭环
+
+| 页面 | 页内可完成的操作 |
+| --- | --- |
+| 知识蒸馏 | 上传聊天记录与图片 / 解析预览 / 一键蒸馏 / 落库 / 直接训练 / 结果与历史 |
+| 微调策略 | 选方法 / 配超参 / 生成命令 / 创建任务 / 执行与异步执行 / 实时进度与指标 |
+| 模型管理 | 注册模型 / 选本地文件夹 / 技能挂载与卸载（页内下拉） |
+| 评测中心 | 创建评测集 / 从已有数据集导入用例 / 页内选择提示词或模型版本 / 运行评测 / 回归对比 |
+| 数据集 | 导入 / 文件上传 / 数据拆分 / 预览 |
+| 训练运行 | 创建 / 同步执行 / 异步执行 / 实时进度 |
+| 向量检索 | 构建向量库 / 分块 / 混合检索 / 进阶 RAG 与答案溯源 |
+| 提示词工程 | 模板 / 版本 / 试跑 / A-B / 自动优化 |
+| 安全护栏 | 扫描 / 红队 / 用例管理 |
+| 可观测性 | 统计看板 / 调用明细 / 清空 |
+
+> 页面之间不再有「请先到 XX 页准备」的依赖；需要引用其他实体的地方一律改为页内下拉选择。
+
 ## 数据模型
 
 ### 业务库 `trainer`
@@ -622,6 +666,7 @@ curl -X POST http://127.0.0.1:5000/api/rag/advanced \
 | eval_runs         | 评测运行      | evalset_id / target_type / summary / results[] / judge_enabled              |
 | guardrail_tests   | 红队测试用例    | category / text / expect                                                    |
 | traces            | 调用追踪      | kind / model / total_tokens / cost_usd / latency_ms / status               |
+| distill_runs      | 蒸馏记录      | mode / format / chat_pairs / image_count / sample_count / dataset_id / train |
 
 ### 训练库 `trainer_ai`
 
@@ -685,6 +730,10 @@ curl -X POST http://127.0.0.1:5000/api/rag/advanced \
 | RAG  | `POST /api/vector/hybrid-search` | BM25 + 向量混合检索（RRF）               |
 | RAG  | `POST /api/vector/rewrite`      | 查询重写                            |
 | RAG  | `POST /api/rag/advanced`        | 重写 + 混合检索 + 重排 + 引用编号 + 答案溯源      |
+| 蒸馏  | `GET /api/distill/config`       | 模式、支持格式与样本上限                     |
+| 蒸馏  | `POST /api/distill/preview`     | 上传后解析预览（不落库）                      |
+| 蒸馏  | `POST /api/distill/run`         | 一键蒸馏（落库 + 可选训练）                    |
+| 蒸馏  | `GET/DELETE /api/distill/runs`  | 蒸馏历史与详情                           |
 
 ## 业务闭环
 
@@ -706,6 +755,8 @@ curl -X POST http://127.0.0.1:5000/api/rag/advanced \
 16. **系统化评测** → 黄金评测集批量评分（可选 LLM 裁判）→ 回归对比检测性能退化。
 17. **安全防护与观测** → 注入 / PII / 敏感词拦截 → 红队报告 → 调用追踪与成本看板。
 18. **进阶 RAG** → 分块 → 混合检索 → 查询重写 → 重排序 → 带溯源答案。
+19. **多模态蒸馏** → 上传聊天记录与图片 → 解析问答 → 图片向量化 → 生成蒸馏数据集 → 页内直接训练。
+20. **页内闭环** → 各功能页自带执行、进度与结果展示，不再跨页准备数据。
 
 ## 项目目录结构
 
@@ -730,8 +781,9 @@ skill-graph-learning/
 │   │   ├── finetune.py       # 微调策略（8 种方法 + 超参模板 + 命令生成）
 │   │   ├── evalset.py        # 评测中心（黄金集/评分/裁判/回归）
 │   │   ├── guardrail.py      # 安全护栏（注入/PII/敏感词/红队）
+│   │   ├── distill.py        # 知识蒸馏（聊天记录+图片解析/落库/页内训练）
 │   │   └── trace.py          # 可观测性（调用追踪/成本/延迟）
-│   └── templates/index.html  # 网页后台（NOVAMED 风格侧边栏工作台，15 个功能页）
+│   └── templates/index.html  # 网页后台（NOVAMED 风格侧边栏工作台，16 个功能页）
 ├── schema/                   # mongosh 建库脚本
 ├── data/                     # 造数脚本
 ├── query/                    # mongosh 查询脚本
@@ -754,6 +806,7 @@ skill-graph-learning/
 - **参数高效微调**：LoRA / QLoRA / DPO / RLHF 超参模板与训练命令生成（可对接 llama-factory / trl）
 - **评测与安全**：规则评分 + LLM-as-a-Judge + 回归对比；BM25 / 正则 / 词典规则实现护栏，离线可用
 - **可观测性**：调用追踪、token 与成本估算、延迟统计看板
+- **知识蒸馏**：聊天记录 / 图片多模态解析 → 蒸馏样本 → 数据集 → 页内训练，一次调用完成
 
 ## 许可证
 
